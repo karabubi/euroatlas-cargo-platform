@@ -1,0 +1,35 @@
+import { apiFetch } from "@/lib/api";
+import type { Shipment, ShipmentStatus } from "@/types/shipment";
+
+export type ShipmentFilters = {
+  search?: string;
+  status?: ShipmentStatus;
+};
+
+function buildQueryString(filters: ShipmentFilters): string {
+  const searchParams = new URLSearchParams();
+
+  if (filters.search?.trim()) {
+    searchParams.set("search", filters.search.trim());
+  }
+
+  if (filters.status) {
+    searchParams.set("status", filters.status);
+  }
+
+  const queryString = searchParams.toString();
+
+  return queryString ? `?${queryString}` : "";
+}
+
+export function getShipments(
+  filters: ShipmentFilters = {},
+): Promise<Shipment[]> {
+  return apiFetch<Shipment[]>(
+    `/shipments${buildQueryString(filters)}`,
+  );
+}
+
+export function getShipment(id: string): Promise<Shipment> {
+  return apiFetch<Shipment>(`/shipments/${id}`);
+}

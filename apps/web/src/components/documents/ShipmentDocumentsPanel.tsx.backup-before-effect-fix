@@ -1,0 +1,204 @@
+'use client';
+
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from 'react';
+
+import DocumentList from '@/components/documents/DocumentList';
+import DocumentUploadForm from '@/components/documents/DocumentUploadForm';
+import { getShipmentDocuments } from '@/lib/documents-api';
+import type { ShipmentDocument } from '@/types/document';
+
+type ShipmentDocumentsPanelProps = {
+  shipmentId: string;
+};
+
+export default function ShipmentDocumentsPanel({
+  shipmentId,
+}: ShipmentDocumentsPanelProps) {
+  const [documents, setDocuments] = useState<
+    ShipmentDocument[]
+  >([]);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] =
+    useState(false);
+  const [error, setError] = useState('');
+
+  const loadDocuments = useCallback(
+    async (showLoadingState = true) => {
+      if (showLoadingState) {
+        setIsLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
+
+      setError('');
+
+      try {
+        const response =
+          await getShipmentDocuments(shipmentId);
+
+        setDocuments(response.documents);
+      } catch (requestError) {
+        setError(
+          requestError instanceof Error
+            ? requestError.message
+            : 'The documents could not be loaded.',
+        );
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [shipmentId],
+  );
+
+  useEffect(() => {
+    void loadDocuments();
+  }, [loadDocuments]);
+
+  function handleUploaded(
+    uploadedDocument: ShipmentDocument,
+  ) {
+    setDocuments((currentDocuments) => {
+      const alreadyExists =
+        currentDocuments.some(
+          (document) =>
+            document.id === uploadedDocument.id,
+        );
+
+      if (alreadyExists) {
+        return currentDocuments;
+      }
+
+      return [
+        uploadedDocument,
+        ...currentDocuments,
+      ];
+    });
+
+    setError('');
+  }
+
+  function handleDeleted(documentId: string) {
+    setDocuments((currentDocuments) =>
+      currentDocuments.filter(
+        (document) => document.id !== documentId,
+      ),
+    );
+  }
+
+  return (
+    <section className="rounded-2xl bg-white p-6 shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-widest text-sky-600">
+            Shipment files
+          </p>
+
+          <h2 className="mt-2 text-2xl font-bold text-slate-950">
+            Documents
+          </h2>
+
+          <p className="mt-2 text-sm text-slate-600">
+            Upload, download and manage documents
+            belonging to this shipment.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-slate-100 px-4 py-3 text-center">
+            <p className="text-2xl font-bold text-slate-950">
+              {documents.length}
+            </p>
+
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Files
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              void loadDocuments(false)
+            }
+            disabled={isLoading || isRefreshing}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isRefreshing
+              ? 'Refreshing...'
+              : 'Refresh'}
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <DocumentUploadForm
+          shipmentId={shipmentId}
+          onUploaded={handleUploaded}
+        />
+      </div>
+
+      <div className="mt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-slate-950">
+            Uploaded documents
+          </h3>
+
+          {!isLoading && !error && (
+            <p className="text-sm text-slate-500">
+              {documents.length === 1
+                ? '1 document'
+                : `${documents.length} documents`}
+            </p>
+          )}
+        </div>
+
+        {isLoading && (
+          <div className="rounded-xl bg-slate-50 p-6">
+            <p className="font-semibold text-slate-700">
+              Loading documents...
+            </p>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Please wait while shipment files are
+              retrieved.
+            </p>
+          </div>
+        )}
+
+        {!isLoading && error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-5">
+            <p className="font-semibold text-red-700">
+              Documents could not be loaded
+            </p>
+
+            <p className="mt-1 text-sm text-red-600">
+              {error}
+            </p>
+
+            <button
+              type="button"
+              onClick={() =>
+                void loadDocuments()
+              }
+              className="mt-4 rounded-lg bg-red-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-800"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {!isLoading && !error && (
+          <DocumentList
+            documents={documents}
+            onDeleted={handleDeleted}
+          />
+        )}
+      </div>
+    </section>
+  );
+}

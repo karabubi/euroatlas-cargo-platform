@@ -1,0 +1,12 @@
+import { apiFetch } from '@/lib/api';
+import type {
+  ShipmentTrackingResponse,
+} from '@/types/tracking';
+
+export async function getShipmentTracking(
+  shipmentId: string,
+) {
+  return apiFetch<ShipmentTrackingResponse>(
+    `/tracking/shipment/${shipmentId}`,
+  );
+}

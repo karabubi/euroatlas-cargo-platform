@@ -1,0 +1,255 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  firstName String
+  lastName  String
+  password  String
+  role      UserRole @default(CUSTOMER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Customer {
+  id          String     @id @default(uuid())
+  customerNo  String     @unique
+  companyName String?
+  firstName   String
+  lastName    String
+  email       String?    @unique
+  phone       String?
+  mobile      String?
+  address     String?
+  postalCode  String?
+  city        String?
+  country     String?
+  taxNumber   String?
+  notes       String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  invoices    Invoice[]
+  shipments   Shipment[]
+
+  @@index([lastName])
+  @@index([companyName])
+  @@index([customerNo])
+}
+
+model Shipment {
+  id                 String             @id @default(uuid())
+  shipmentNo         String             @unique
+  customerId         String
+  status             ShipmentStatus     @default(DRAFT)
+  originCountry      String
+  originCity         String?
+  originPort         String?
+  destinationCountry String
+  destinationCity    String?
+  destinationPort    String?
+  bookingReference   String?
+  containerNumber    String?
+  shippingLine       String?
+  vesselName         String?
+  voyageNumber       String?
+  estimatedDeparture DateTime?
+  actualDeparture    DateTime?
+  estimatedArrival   DateTime?
+  actualArrival      DateTime?
+  description        String?
+  notes              String?
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  invoices           Invoice[]
+  customer           Customer           @relation(fields: [customerId], references: [id])
+  documents          ShipmentDocument[]
+  tracking           ShipmentTracking[]
+  vehicles           Vehicle[]
+
+  @@index([customerId])
+  @@index([shipmentNo])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Vehicle {
+  id                String        @id @default(uuid())
+  vehicleNo         String        @unique
+  shipmentId        String
+  vin               String?       @unique
+  make              String
+  model             String
+  year              Int?
+  color             String?
+  vehicleType       String?
+  fuelType          String?
+  transmission      String?
+  purchasePrice     Decimal?      @db.Decimal(12, 2)
+  declaredValue     Decimal?      @db.Decimal(12, 2)
+  hasKeys           Boolean       @default(true)
+  isRunning         Boolean       @default(true)
+  hasDamage         Boolean       @default(false)
+  damageDescription String?
+  status            VehicleStatus @default(REGISTERED)
+  notes             String?
+  isActive          Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  shipment          Shipment      @relation(fields: [shipmentId], references: [id])
+
+  @@index([shipmentId])
+  @@index([vehicleNo])
+  @@index([vin])
+  @@index([make])
+  @@index([model])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ShipmentTracking {
+  id          String            @id @default(uuid())
+  shipmentId  String
+  eventType   TrackingEventType
+  status      ShipmentStatus?
+  title       String
+  description String?
+  location    String?
+  createdBy   String?
+  createdAt   DateTime          @default(now())
+  shipment    Shipment          @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+model ShipmentDocument {
+  id           String   @id @default(cuid())
+  shipmentId   String
+  category     String
+  title        String
+  description  String?
+  originalName String
+  storedName   String
+  mimeType     String
+  size         Int
+  uploadedBy   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  shipment     Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentId])
+  @@index([category])
+  @@index([createdAt])
+}
+
+model Invoice {
+  id           String        @id @default(uuid())
+  invoiceNo    String        @unique
+  customerId   String
+  shipmentId   String
+  status       InvoiceStatus @default(DRAFT)
+  currency     String        @default("EUR")
+  issueDate    DateTime      @default(now())
+  dueDate      DateTime?
+  paidAt       DateTime?
+  subtotal     Decimal       @default(0) @db.Decimal(12, 2)
+  taxRate      Decimal       @default(0) @db.Decimal(5, 2)
+  taxAmount    Decimal       @default(0) @db.Decimal(12, 2)
+  total        Decimal       @default(0) @db.Decimal(12, 2)
+  notes        String?
+  paymentTerms String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  customer     Customer      @relation(fields: [customerId], references: [id])
+  shipment     Shipment      @relation(fields: [shipmentId], references: [id])
+  items        InvoiceItem[]
+
+  @@index([invoiceNo])
+  @@index([customerId])
+  @@index([shipmentId])
+  @@index([status])
+  @@index([issueDate])
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  description String
+  quantity    Decimal  @default(1) @db.Decimal(10, 2)
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  amount      Decimal  @db.Decimal(12, 2)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([position])
+}
+
+enum UserRole {
+  ADMIN
+  EMPLOYEE
+  CUSTOMER
+}
+
+enum VehicleStatus {
+  REGISTERED
+  RECEIVED
+  INSPECTED
+  READY_FOR_LOADING
+  LOADED
+  IN_TRANSIT
+  ARRIVED
+  CUSTOMS_CLEARANCE
+  READY_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum ShipmentStatus {
+  DRAFT
+  QUOTED
+  BOOKED
+  RECEIVED
+  LOADED
+  IN_TRANSIT
+  ARRIVED
+  CUSTOMS_CLEARANCE
+  READY_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum TrackingEventType {
+  CREATED
+  STATUS_CHANGED
+  LOCATION_UPDATE
+  DOCUMENT_UPLOADED
+  NOTE_ADDED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}

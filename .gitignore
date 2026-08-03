@@ -1,0 +1,4 @@
+
+# Local shipment document uploads
+apps/api/uploads/documents/*
+!apps/api/uploads/documents/.gitkeep

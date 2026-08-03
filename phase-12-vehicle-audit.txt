@@ -1,0 +1,963 @@
+
+================================================
+EUROATLAS CARGO — VEHICLE PHASE AUDIT
+================================================
+
+1. PRISMA VEHICLE MODEL
+------------------------------------------------
+model Vehicle {
+  id         String   @id @default(uuid())
+  vehicleNo  String   @unique
+  shipmentId String
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
+
+  vin          String? @unique
+  make         String
+  model        String
+  year         Int?
+  color        String?
+  vehicleType  String?
+  fuelType     String?
+  transmission String?
+
+  purchasePrice Decimal? @db.Decimal(12, 2)
+  declaredValue Decimal? @db.Decimal(12, 2)
+
+  hasKeys           Boolean @default(true)
+  isRunning         Boolean @default(true)
+  hasDamage         Boolean @default(false)
+  damageDescription String?
+
+  status   VehicleStatus @default(REGISTERED)
+  notes    String?
+  isActive Boolean       @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shipmentId])
+  @@index([vehicleNo])
+  @@index([vin])
+  @@index([make])
+  @@index([model])
+  @@index([status])
+  @@index([createdAt])
+}
+
+2. VEHICLE BACKEND FILES
+------------------------------------------------
+apps/api/src/vehicles/dto/create-vehicle.dto.ts
+apps/api/src/vehicles/dto/update-vehicle.dto.ts
+apps/api/src/vehicles/entities/vehicle.entity.ts
+apps/api/src/vehicles/vehicles.controller.spec.ts
+apps/api/src/vehicles/vehicles.controller.ts
+apps/api/src/vehicles/vehicles.module.ts
+apps/api/src/vehicles/vehicles.service.spec.ts
+apps/api/src/vehicles/vehicles.service.ts
+
+3. VEHICLE CONTROLLER
+------------------------------------------------
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseEnumPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { VehicleStatus } from '../../generated/prisma/enums';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+import { VehiclesService } from './vehicles.service';
+
+@UseGuards(JwtAuthGuard)
+@Controller('vehicles')
+export class VehiclesController {
+  constructor(private readonly vehiclesService: VehiclesService) {}
+
+  @Post()
+  create(@Body() createVehicleDto: CreateVehicleDto) {
+    return this.vehiclesService.create(createVehicleDto);
+  }
+
+  @Get()
+  findAll(
+    @Query('search') search?: string,
+    @Query(
+      'status',
+      new ParseEnumPipe(VehicleStatus, {
+        optional: true,
+      }),
+    )
+    status?: VehicleStatus,
+    @Query('shipmentId') shipmentId?: string,
+  ) {
+    return this.vehiclesService.findAll(search, status, shipmentId);
+  }
+
+  @Get(':id')
+  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.vehiclesService.findOne(id);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() updateVehicleDto: UpdateVehicleDto,
+  ) {
+    return this.vehiclesService.update(id, updateVehicleDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.vehiclesService.remove(id);
+  }
+}
+
+4. CREATE VEHICLE DTO
+------------------------------------------------
+FILE: apps/api/src/vehicles/dto/create-vehicle.dto.ts
+import { Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Length,
+  Max,
+  Min,
+} from 'class-validator';
+
+export class CreateVehicleDto {
+  @IsUUID()
+  @IsNotEmpty()
+  shipmentId: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(5, 40)
+  vin?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Length(1, 100)
+  make: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Length(1, 100)
+  model: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1900)
+  @Max(2100)
+  year?: number;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  color?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  vehicleType?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  fuelType?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  transmission?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  purchasePrice?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  declaredValue?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  hasKeys?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isRunning?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  hasDamage?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 2000)
+  damageDescription?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 3000)
+  notes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+5. UPDATE VEHICLE DTO
+------------------------------------------------
+FILE: apps/api/src/vehicles/dto/update-vehicle.dto.ts
+import { PartialType } from '@nestjs/mapped-types';
+import { IsEnum, IsOptional } from 'class-validator';
+import { VehicleStatus } from '../../../generated/prisma/enums';
+import { CreateVehicleDto } from './create-vehicle.dto';
+
+export class UpdateVehicleDto extends PartialType(CreateVehicleDto) {
+  @IsOptional()
+  @IsEnum(VehicleStatus)
+  status?: VehicleStatus;
+}
+
+6. VEHICLE SERVICE
+------------------------------------------------
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '../../generated/prisma/client';
+import { VehicleStatus } from '../../generated/prisma/enums';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+
+@Injectable()
+export class VehiclesService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(createVehicleDto: CreateVehicleDto) {
+    const shipment = await this.prisma.shipment.findUnique({
+      where: { id: createVehicleDto.shipmentId },
+      select: {
+        id: true,
+        shipmentNo: true,
+        isActive: true,
+      },
+    });
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found.');
+    }
+
+    if (!shipment.isActive) {
+      throw new BadRequestException(
+        'A vehicle cannot be added to an inactive shipment.',
+      );
+    }
+
+    const normalizedVin = this.normalizeOptionalText(createVehicleDto.vin);
+
+    if (normalizedVin) {
+      const existingVehicle = await this.prisma.vehicle.findUnique({
+        where: { vin: normalizedVin },
+        select: { id: true },
+      });
+
+      if (existingVehicle) {
+        throw new ConflictException('A vehicle with this VIN already exists.');
+      }
+    }
+
+    const vehicleNo = await this.generateVehicleNumber();
+
+    try {
+      return await this.prisma.vehicle.create({
+        data: {
+          vehicleNo,
+          shipmentId: createVehicleDto.shipmentId,
+          vin: normalizedVin,
+          make: createVehicleDto.make.trim(),
+          model: createVehicleDto.model.trim(),
+          year: createVehicleDto.year,
+          color: this.normalizeOptionalText(createVehicleDto.color),
+          vehicleType: this.normalizeOptionalText(createVehicleDto.vehicleType),
+          fuelType: this.normalizeOptionalText(createVehicleDto.fuelType),
+          transmission: this.normalizeOptionalText(
+            createVehicleDto.transmission,
+          ),
+          purchasePrice:
+            createVehicleDto.purchasePrice === undefined
+              ? undefined
+              : new Prisma.Decimal(createVehicleDto.purchasePrice),
+          declaredValue:
+            createVehicleDto.declaredValue === undefined
+              ? undefined
+              : new Prisma.Decimal(createVehicleDto.declaredValue),
+          hasKeys: createVehicleDto.hasKeys,
+          isRunning: createVehicleDto.isRunning,
+          hasDamage: createVehicleDto.hasDamage,
+          damageDescription: this.normalizeOptionalText(
+            createVehicleDto.damageDescription,
+          ),
+          notes: this.normalizeOptionalText(createVehicleDto.notes),
+          isActive: createVehicleDto.isActive,
+        },
+        include: this.vehicleInclude,
+      });
+    } catch (error) {
+      this.handlePrismaError(error);
+    }
+  }
+
+  async findAll(search?: string, status?: VehicleStatus, shipmentId?: string) {
+    const trimmedSearch = search?.trim();
+
+    return this.prisma.vehicle.findMany({
+      where: {
+        status,
+        shipmentId,
+        ...(trimmedSearch
+          ? {
+              OR: [
+                {
+                  vehicleNo: {
+                    contains: trimmedSearch,
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  vin: {
+                    contains: trimmedSearch,
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  make: {
+                    contains: trimmedSearch,
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  model: {
+                    contains: trimmedSearch,
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  color: {
+                    contains: trimmedSearch,
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  shipment: {
+                    shipmentNo: {
+                      contains: trimmedSearch,
+                      mode: 'insensitive',
+                    },
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      include: this.vehicleInclude,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async findOne(id: string) {
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id },
+      include: this.vehicleInclude,
+    });
+
+    if (!vehicle) {
+      throw new NotFoundException('Vehicle not found.');
+    }
+
+    return vehicle;
+  }
+
+  async update(id: string, updateVehicleDto: UpdateVehicleDto) {
+    await this.findOne(id);
+
+    if (updateVehicleDto.shipmentId) {
+      const shipment = await this.prisma.shipment.findUnique({
+        where: { id: updateVehicleDto.shipmentId },
+        select: { id: true, isActive: true },
+      });
+
+      if (!shipment) {
+        throw new NotFoundException('Shipment not found.');
+      }
+
+      if (!shipment.isActive) {
+        throw new BadRequestException(
+          'The vehicle cannot be assigned to an inactive shipment.',
+        );
+      }
+    }
+
+    const normalizedVin =
+      updateVehicleDto.vin === undefined
+        ? undefined
+        : this.normalizeOptionalText(updateVehicleDto.vin);
+
+    if (normalizedVin) {
+      const existingVehicle = await this.prisma.vehicle.findUnique({
+        where: { vin: normalizedVin },
+        select: { id: true },
+      });
+
+      if (existingVehicle && existingVehicle.id !== id) {
+        throw new ConflictException('A vehicle with this VIN already exists.');
+      }
+    }
+
+    try {
+      return await this.prisma.vehicle.update({
+        where: { id },
+        data: {
+          shipmentId: updateVehicleDto.shipmentId,
+          vin: normalizedVin,
+          make: updateVehicleDto.make?.trim(),
+          model: updateVehicleDto.model?.trim(),
+          year: updateVehicleDto.year,
+          color:
+            updateVehicleDto.color === undefined
+              ? undefined
+              : this.normalizeOptionalText(updateVehicleDto.color),
+          vehicleType:
+            updateVehicleDto.vehicleType === undefined
+              ? undefined
+              : this.normalizeOptionalText(updateVehicleDto.vehicleType),
+          fuelType:
+            updateVehicleDto.fuelType === undefined
+              ? undefined
+              : this.normalizeOptionalText(updateVehicleDto.fuelType),
+          transmission:
+            updateVehicleDto.transmission === undefined
+              ? undefined
+              : this.normalizeOptionalText(updateVehicleDto.transmission),
+          purchasePrice:
+            updateVehicleDto.purchasePrice === undefined
+              ? undefined
+              : new Prisma.Decimal(updateVehicleDto.purchasePrice),
+          declaredValue:
+            updateVehicleDto.declaredValue === undefined
+              ? undefined
+              : new Prisma.Decimal(updateVehicleDto.declaredValue),
+          hasKeys: updateVehicleDto.hasKeys,
+          isRunning: updateVehicleDto.isRunning,
+          hasDamage: updateVehicleDto.hasDamage,
+          damageDescription:
+            updateVehicleDto.damageDescription === undefined
+              ? undefined
+              : this.normalizeOptionalText(updateVehicleDto.damageDescription),
+          status: updateVehicleDto.status,
+          notes:
+            updateVehicleDto.notes === undefined
+              ? undefined
+              : this.normalizeOptionalText(updateVehicleDto.notes),
+          isActive: updateVehicleDto.isActive,
+        },
+        include: this.vehicleInclude,
+      });
+    } catch (error) {
+      this.handlePrismaError(error);
+    }
+  }
+
+  async remove(id: string) {
+    await this.findOne(id);
+
+    try {
+      return await this.prisma.vehicle.delete({
+        where: { id },
+      });
+    } catch (error) {
+      this.handlePrismaError(error);
+    }
+  }
+
+  private async generateVehicleNumber(): Promise<string> {
+    const year = new Date().getFullYear();
+
+    const lastVehicle = await this.prisma.vehicle.findFirst({
+      where: {
+        vehicleNo: {
+          startsWith: `VEH-${year}-`,
+        },
+      },
+      orderBy: {
+        vehicleNo: 'desc',
+      },
+      select: {
+        vehicleNo: true,
+      },
+    });
+
+    const lastSequence = lastVehicle
+      ? Number(lastVehicle.vehicleNo.split('-').at(-1))
+      : 0;
+
+    const nextSequence = Number.isFinite(lastSequence) ? lastSequence + 1 : 1;
+
+    return `VEH-${year}-${String(nextSequence).padStart(4, '0')}`;
+  }
+
+  private normalizeOptionalText(value?: string): string | null | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    const trimmedValue = value.trim();
+    return trimmedValue.length > 0 ? trimmedValue : null;
+  }
+
+  private handlePrismaError(error: unknown): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      throw new ConflictException(
+        'A vehicle with one of these unique values already exists.',
+      );
+    }
+
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2025'
+    ) {
+      throw new NotFoundException('Vehicle not found.');
+    }
+
+    throw error;
+  }
+
+  private readonly vehicleInclude = {
+    shipment: {
+      select: {
+        id: true,
+        shipmentNo: true,
+        status: true,
+        originCountry: true,
+        destinationCountry: true,
+        customer: {
+          select: {
+            id: true,
+            customerNo: true,
+            companyName: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    },
+  } satisfies Prisma.VehicleInclude;
+}
+
+7. FRONTEND VEHICLE FILES
+------------------------------------------------
+apps/web/src/app/dashboard/vehicles/[id]/edit/page.tsx
+apps/web/src/app/dashboard/vehicles/[id]/page.tsx
+apps/web/src/app/dashboard/vehicles/new/page.tsx
+apps/web/src/app/dashboard/vehicles/page.tsx
+apps/web/src/app/vehicles/[id]/edit/page.tsx
+apps/web/src/app/vehicles/[id]/page.tsx
+apps/web/src/app/vehicles/new/page.tsx
+apps/web/src/app/vehicles/page.tsx
+apps/web/src/components/vehicles/VehicleForm.backup.tsx
+apps/web/src/components/vehicles/VehicleForm.tsx
+apps/web/src/lib/vehicles-api.ts
+apps/web/src/types/vehicle.ts
+
+8. FRONTEND VEHICLE PAGE
+------------------------------------------------
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+
+import { ApiError } from '@/lib/api';
+import { getVehicles } from '@/lib/vehicles-api';
+import type { Vehicle } from '@/types/vehicle';
+
+export default function VehiclesPage() {
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    async function loadVehicles() {
+      try {
+        setIsLoading(true);
+        setErrorMessage('');
+
+        const data = await getVehicles();
+        setVehicles(data);
+      } catch (error) {
+        if (error instanceof ApiError) {
+          setErrorMessage(error.message);
+        } else {
+          setErrorMessage('Could not load vehicles.');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    void loadVehicles();
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-slate-50 p-6">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">
+              Vehicles
+            </h1>
+
+            <p className="mt-1 text-sm text-slate-600">
+              Manage all vehicles connected to shipments.
+            </p>
+          </div>
+
+          <Link
+            href="/dashboard/vehicles/new"
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+          >
+            Add Vehicle
+          </Link>
+        </div>
+
+        {isLoading && (
+          <div className="rounded-lg border border-slate-200 bg-white p-6">
+            <p className="text-slate-600">Loading vehicles...</p>
+          </div>
+        )}
+
+        {!isLoading && errorMessage && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+            <p className="text-sm text-red-700">{errorMessage}</p>
+          </div>
+        )}
+
+        {!isLoading && !errorMessage && vehicles.length === 0 && (
+          <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
+            <h2 className="text-lg font-semibold text-slate-900">
+              No vehicles found
+            </h2>
+
+            <p className="mt-2 text-sm text-slate-600">
+              Create your first vehicle to begin managing vehicle shipments.
+            </p>
+
+            <Link
+              href="/dashboard/vehicles/new"
+              className="mt-4 inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+            >
+              Add First Vehicle
+            </Link>
+          </div>
+        )}
+
+        {!isLoading && !errorMessage && vehicles.length > 0 && (
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="bg-slate-100">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Vehicle No.
+                    </th>
+
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Vehicle
+                    </th>
+
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      VIN
+                    </th>
+
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Year
+                    </th>
+
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Status
+                    </th>
+
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-200">
+                  {vehicles.map((vehicle) => (
+                    <tr key={vehicle.id} className="hover:bg-slate-50">
+                      <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-slate-900">
+                        {vehicle.vehicleNo}
+                      </td>
+
+                      <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-700">
+                        {vehicle.make} {vehicle.model}
+                      </td>
+
+                      <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-700">
+                        {vehicle.vin ?? '—'}
+                      </td>
+
+                      <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-700">
+                        {vehicle.year ?? '—'}
+                      </td>
+
+                      <td className="whitespace-nowrap px-4 py-4">
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                          {vehicle.status.replaceAll('_', ' ')}
+                        </span>
+                      </td>
+
+                      <td className="whitespace-nowrap px-4 py-4 text-right text-sm">
+                        <Link
+                          href={`/dashboard/vehicles/${vehicle.id}`}
+                          className="font-medium text-blue-600 hover:text-blue-800"
+                        >
+                          View
+                        </Link>
+
+                        <Link
+                          href={`/dashboard/vehicles/${vehicle.id}/edit`}
+                          className="ml-4 font-medium text-slate-700 hover:text-slate-900"
+                        >
+                          Edit
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+9. VEHICLE TYPES
+------------------------------------------------
+export type VehicleStatus =
+  | 'REGISTERED'
+  | 'RECEIVED'
+  | 'INSPECTED'
+  | 'READY_FOR_LOADING'
+  | 'LOADED'
+  | 'IN_TRANSIT'
+  | 'ARRIVED'
+  | 'CUSTOMS_CLEARANCE'
+  | 'READY_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'CANCELLED';
+
+export interface VehicleShipment {
+  id: string;
+  shipmentNo: string;
+}
+
+export interface Vehicle {
+  id: string;
+  vehicleNo: string;
+  shipmentId: string;
+
+  shipment?: VehicleShipment;
+
+  vin?: string | null;
+
+  make: string;
+  model: string;
+  year?: number | null;
+
+  color?: string | null;
+  vehicleType?: string | null;
+  fuelType?: string | null;
+  transmission?: string | null;
+
+  purchasePrice?: string | number | null;
+  declaredValue?: string | number | null;
+
+  hasKeys: boolean;
+  isRunning: boolean;
+  hasDamage: boolean;
+
+  damageDescription?: string | null;
+
+  status: VehicleStatus;
+
+  notes?: string | null;
+
+  isActive: boolean;
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateVehicleInput {
+  shipmentId: string;
+
+  vin?: string;
+
+  make: string;
+  model: string;
+
+  year?: number;
+
+  color?: string;
+  vehicleType?: string;
+  fuelType?: string;
+  transmission?: string;
+
+  purchasePrice?: number;
+  declaredValue?: number;
+
+  hasKeys?: boolean;
+  isRunning?: boolean;
+  hasDamage?: boolean;
+
+  damageDescription?: string;
+  notes?: string;
+
+  isActive?: boolean;
+}
+
+export type UpdateVehicleInput = Partial<CreateVehicleInput> & {
+  status?: VehicleStatus;
+};
+
+10. VEHICLE API CLIENT
+------------------------------------------------
+import { apiFetch } from '@/lib/api';
+import type {
+  CreateVehicleInput,
+  UpdateVehicleInput,
+  Vehicle,
+  VehicleStatus,
+} from '@/types/vehicle';
+
+export type VehicleFilters = {
+  search?: string;
+  status?: VehicleStatus;
+  shipmentId?: string;
+};
+
+function buildQueryString(filters: VehicleFilters): string {
+  const searchParams = new URLSearchParams();
+
+  if (filters.search?.trim()) {
+    searchParams.set('search', filters.search.trim());
+  }
+
+  if (filters.status) {
+    searchParams.set('status', filters.status);
+  }
+
+  if (filters.shipmentId) {
+    searchParams.set('shipmentId', filters.shipmentId);
+  }
+
+  const queryString = searchParams.toString();
+
+  return queryString ? `?${queryString}` : '';
+}
+
+export function getVehicles(
+  filters: VehicleFilters = {},
+): Promise<Vehicle[]> {
+  return apiFetch<Vehicle[]>(
+    `/vehicles${buildQueryString(filters)}`,
+  );
+}
+
+export function getVehicle(id: string): Promise<Vehicle> {
+  return apiFetch<Vehicle>(`/vehicles/${id}`);
+}
+
+export function createVehicle(
+  input: CreateVehicleInput,
+): Promise<Vehicle> {
+  return apiFetch<Vehicle>('/vehicles', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateVehicle(
+  id: string,
+  input: UpdateVehicleInput,
+): Promise<Vehicle> {
+  return apiFetch<Vehicle>(`/vehicles/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteVehicle(id: string): Promise<Vehicle> {
+  return apiFetch<Vehicle>(`/vehicles/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+
+11. TYPESCRIPT AND LINT STATUS
+------------------------------------------------
+
+> web@0.1.0 lint /Users/salehalkarabubi/works/euroatlas-cargo-platform/apps/web
+> eslint
+
+
+API TypeScript status: 0
+Web TypeScript status: 0
+Web lint status: 0
+
+12. RUNNING SERVICES
+------------------------------------------------
+Frontend port 3000:
+COMMAND  PID            USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+node    3257 salehalkarabubi   20u  IPv6 0x8a75f8940cc5ff27      0t0  TCP *:3000 (LISTEN)
+
+Backend port 4000:
+COMMAND  PID            USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+node    5716 salehalkarabubi   19u  IPv6 0x7efc04f1db637d76      0t0  TCP *:4000 (LISTEN)
+
+PostgreSQL port 55432:
+COMMAND    PID            USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+com.docke 3997 salehalkarabubi  541u  IPv6 0x9ce66afc4d74a4a5      0t0  TCP *:55432 (LISTEN)
+
+================================================
+AUDIT FINISHED
+================================================

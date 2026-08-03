@@ -1,0 +1,86 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
+import TrackingTimeline from '@/components/tracking/TrackingTimeline';
+import { getShipmentTracking } from '@/lib/tracking-api';
+import type { TrackingEvent } from '@/types/tracking';
+
+type ShipmentTrackingPanelProps = {
+  shipmentId: string;
+};
+
+export default function ShipmentTrackingPanel({
+  shipmentId,
+}: ShipmentTrackingPanelProps) {
+  const [events, setEvents] = useState<TrackingEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadTracking() {
+      setIsLoading(true);
+      setError('');
+
+      try {
+        const data = await getShipmentTracking(shipmentId);
+
+        if (!isCancelled) {
+          setEvents(data.tracking);
+        }
+      } catch (requestError) {
+        if (!isCancelled) {
+          setError(
+            requestError instanceof Error
+              ? requestError.message
+              : 'The tracking timeline could not be loaded.',
+          );
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    if (shipmentId) {
+      void loadTracking();
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [shipmentId]);
+
+  if (isLoading) {
+    return (
+      <section className="rounded-2xl bg-white p-6 shadow-sm">
+        <h2 className="text-xl font-bold text-slate-950">
+          Tracking Timeline
+        </h2>
+
+        <p className="mt-4 text-slate-500">
+          Loading tracking events...
+        </p>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="rounded-2xl bg-white p-6 shadow-sm">
+        <h2 className="text-xl font-bold text-slate-950">
+          Tracking Timeline
+        </h2>
+
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+          {error}
+        </div>
+      </section>
+    );
+  }
+
+  return <TrackingTimeline events={events} />;
+}

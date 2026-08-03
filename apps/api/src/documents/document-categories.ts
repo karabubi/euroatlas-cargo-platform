@@ -1,0 +1,12 @@
+export const DOCUMENT_CATEGORIES = [
+  'BILL_OF_LADING',
+  'COMMERCIAL_INVOICE',
+  'PACKING_LIST',
+  'CUSTOMS_DOCUMENT',
+  'VEHICLE_DOCUMENT',
+  'INSURANCE_DOCUMENT',
+  'PROOF_OF_DELIVERY',
+  'OTHER',
+] as const;
+
+export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number];
