@@ -2,3 +2,44 @@
 # Local shipment document uploads
 apps/api/uploads/documents/*
 !apps/api/uploads/documents/.gitkeep
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+**/dist/
+.next/
+**/.next/
+coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Editor and local history
+.history/
+**/.history/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Generated and temporary audit files
+phase-*-audit-output.txt
+shipment-page-inspection.txt
+shipment-page.txt
+tracking-inspection.txt
+
+# Uploaded runtime files
+apps/api/uploads/documents/*
+!apps/api/uploads/documents/.gitkeep
