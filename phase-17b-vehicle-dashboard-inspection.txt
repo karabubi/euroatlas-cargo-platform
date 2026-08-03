@@ -1,0 +1,625 @@
+========================================
+VEHICLE LIST PAGE
+========================================
+'use client';
+
+import Link from 'next/link';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
+import { ApiError } from '@/lib/api';
+import { getVehicles } from '@/lib/vehicles-api';
+import type {
+  Vehicle,
+  VehicleStatus,
+} from '@/types/vehicle';
+
+const vehicleStatuses: VehicleStatus[] = [
+  'REGISTERED',
+  'RECEIVED',
+  'INSPECTED',
+  'READY_FOR_LOADING',
+  'LOADED',
+  'IN_TRANSIT',
+  'ARRIVED',
+  'CUSTOMS_CLEARANCE',
+  'READY_FOR_DELIVERY',
+  'DELIVERED',
+  'CANCELLED',
+];
+
+function formatStatus(status: VehicleStatus): string {
+  return status
+    .toLowerCase()
+    .split('_')
+    .map(
+      (part) =>
+        part.charAt(0).toUpperCase() +
+        part.slice(1),
+    )
+    .join(' ');
+}
+
+function statusClasses(status: VehicleStatus): string {
+  switch (status) {
+    case 'DELIVERED':
+      return 'bg-emerald-100 text-emerald-800';
+
+    case 'IN_TRANSIT':
+    case 'LOADED':
+      return 'bg-sky-100 text-sky-800';
+
+    case 'ARRIVED':
+    case 'CUSTOMS_CLEARANCE':
+    case 'READY_FOR_DELIVERY':
+      return 'bg-amber-100 text-amber-800';
+
+    case 'CANCELLED':
+      return 'bg-red-100 text-red-800';
+
+    default:
+      return 'bg-slate-100 text-slate-700';
+  }
+}
+
+export default function VehiclesPage() {
+  const [vehicles, setVehicles] =
+    useState<Vehicle[]>([]);
+
+  const [search, setSearch] =
+    useState('');
+
+  const [status, setStatus] =
+    useState<VehicleStatus | ''>('');
+
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [isRefreshing, setIsRefreshing] =
+    useState(false);
+
+  const [errorMessage, setErrorMessage] =
+    useState('');
+
+  const loadVehicles = useCallback(
+    async (refresh = false) => {
+      try {
+        if (refresh) {
+          setIsRefreshing(true);
+        } else {
+          setIsLoading(true);
+        }
+
+        setErrorMessage('');
+
+        const data = await getVehicles({
+          search:
+            search.trim() || undefined,
+          status: status || undefined,
+        });
+
+        setVehicles(data);
+      } catch (error) {
+        if (error instanceof ApiError) {
+          setErrorMessage(error.message);
+        } else {
+          setErrorMessage(
+            'Could not load vehicles.',
+          );
+        }
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [search, status],
+  );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadVehicles();
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [loadVehicles]);
+
+  const statistics = useMemo(() => {
+    const active = vehicles.filter(
+      (vehicle) => vehicle.isActive,
+    ).length;
+
+    const inTransit = vehicles.filter(
+      (vehicle) =>
+        vehicle.status === 'IN_TRANSIT' ||
+        vehicle.status === 'LOADED',
+    ).length;
+
+    const delivered = vehicles.filter(
+      (vehicle) =>
+        vehicle.status === 'DELIVERED',
+    ).length;
+
+    const damaged = vehicles.filter(
+      (vehicle) => vehicle.hasDamage,
+    ).length;
+
+    return {
+      total: vehicles.length,
+      active,
+      inTransit,
+      delivered,
+      damaged,
+    };
+  }, [vehicles]);
+
+  function clearFilters(): void {
+    setSearch('');
+    setStatus('');
+  }
+
+  const hasFilters =
+    search.trim().length > 0 ||
+    status.length > 0;
+
+  return (
+    <div className="space-y-6">
+      <header className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-widest text-sky-600">
+            Vehicle management
+          </p>
+
+          <h1 className="mt-2 text-4xl font-bold text-slate-950">
+            Vehicles
+          </h1>
+
+          <p className="mt-2 text-slate-600">
+            Manage vehicles connected to cargo shipments.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={() =>
+              void loadVehicles(true)
+            }
+            disabled={isRefreshing}
+            className="rounded-lg border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isRefreshing
+              ? 'Refreshing...'
+              : 'Refresh'}
+          </button>
+
+          <Link
+            href="/dashboard/vehicles/new"
+            className="rounded-lg bg-slate-950 px-5 py-3 text-center font-semibold text-white hover:bg-slate-800"
+          >
+            Add Vehicle
+          </Link>
+        </div>
+      </header>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <SummaryCard
+          label="Results"
+          value={statistics.total}
+        />
+
+        <SummaryCard
+          label="Active"
+          value={statistics.active}
+        />
+
+        <SummaryCard
+          label="In transit"
+          value={statistics.inTransit}
+        />
+
+        <SummaryCard
+          label="Delivered"
+          value={statistics.delivered}
+        />
+
+        <SummaryCard
+          label="With damage"
+          value={statistics.damaged}
+        />
+      </section>
+
+      <section className="rounded-2xl bg-white p-6 shadow-sm">
+        <div className="grid gap-4 lg:grid-cols-[1fr_260px_auto]">
+          <label>
+            <span className="text-sm font-semibold text-slate-700">
+              Search
+            </span>
+
+            <input
+              type="search"
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              placeholder="Vehicle no., VIN, make, model or shipment..."
+              className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-950 outline-none placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+            />
+          </label>
+
+          <label>
+            <span className="text-sm font-semibold text-slate-700">
+              Status
+            </span>
+
+            <select
+              value={status}
+              onChange={(event) =>
+                setStatus(
+                  event.target.value as
+                    | VehicleStatus
+                    | '',
+                )
+              }
+              className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+            >
+              <option value="">
+                All statuses
+              </option>
+
+              {vehicleStatuses.map(
+                (vehicleStatus) => (
+                  <option
+                    key={vehicleStatus}
+                    value={vehicleStatus}
+                  >
+                    {formatStatus(
+                      vehicleStatus,
+                    )}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
+
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={clearFilters}
+              disabled={!hasFilters}
+              className="w-full rounded-lg border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 lg:w-auto"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {isLoading && (
+        <section className="rounded-2xl bg-white p-8 shadow-sm">
+          <p className="text-slate-600">
+            Loading vehicles...
+          </p>
+        </section>
+      )}
+
+      {!isLoading && errorMessage && (
+        <section className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+            {errorMessage}
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              void loadVehicles(true)
+            }
+            className="mt-4 rounded-lg bg-red-700 px-4 py-2.5 font-semibold text-white hover:bg-red-800"
+          >
+            Try Again
+          </button>
+        </section>
+      )}
+
+      {!isLoading &&
+        !errorMessage &&
+        vehicles.length === 0 && (
+          <section className="rounded-2xl bg-white p-10 text-center shadow-sm">
+            <h2 className="text-xl font-bold text-slate-950">
+              {hasFilters
+                ? 'No matching vehicles'
+                : 'No vehicles found'}
+            </h2>
+
+            <p className="mx-auto mt-2 max-w-xl text-slate-600">
+              {hasFilters
+                ? 'Change or clear the search filters to see other vehicles.'
+                : 'Create the first vehicle and assign it to an active shipment.'}
+            </p>
+
+            <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+              {hasFilters && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="rounded-lg border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Clear Filters
+                </button>
+              )}
+
+              <Link
+                href="/dashboard/vehicles/new"
+                className="rounded-lg bg-slate-950 px-5 py-3 font-semibold text-white hover:bg-slate-800"
+              >
+                Add Vehicle
+              </Link>
+            </div>
+          </section>
+        )}
+
+      {!isLoading &&
+        !errorMessage &&
+        vehicles.length > 0 && (
+          <section className="overflow-hidden rounded-2xl bg-white shadow-sm">
+            <div className="border-b border-slate-200 p-6">
+              <h2 className="text-xl font-bold text-slate-950">
+                Vehicle records
+              </h2>
+
+              <p className="mt-1 text-slate-600">
+                {vehicles.length}{' '}
+                {vehicles.length === 1
+                  ? 'vehicle'
+                  : 'vehicles'}{' '}
+                found.
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-[1050px] w-full">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <TableHeading>
+                      Vehicle No.
+                    </TableHeading>
+
+                    <TableHeading>
+                      Vehicle
+                    </TableHeading>
+
+                    <TableHeading>
+                      VIN
+                    </TableHeading>
+
+                    <TableHeading>
+                      Shipment
+                    </TableHeading>
+
+                    <TableHeading>
+                      Status
+                    </TableHeading>
+
+                    <TableHeading>
+                      Condition
+                    </TableHeading>
+
+                    <TableHeading>
+                      Active
+                    </TableHeading>
+
+                    <TableHeading alignRight>
+                      Actions
+                    </TableHeading>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100">
+                  {vehicles.map((vehicle) => (
+
+========================================
+NEW VEHICLE PAGE
+========================================
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+import VehicleForm from "@/components/vehicles/VehicleForm";
+import { createVehicle } from "@/lib/vehicles-api";
+import type { CreateVehicleInput } from "@/types/vehicle";
+
+export default function NewVehiclePage() {
+  const router = useRouter();
+
+  async function handleCreateVehicle(
+    data: CreateVehicleInput,
+  ): Promise<void> {
+    await createVehicle(data);
+
+    router.push("/dashboard/vehicles");
+    router.refresh();
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-50 px-6 py-10">
+      <div className="mx-auto max-w-5xl">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-slate-500">
+              Vehicle management
+            </p>
+
+            <h1 className="mt-1 text-3xl font-bold text-slate-900">
+              Add Vehicle
+            </h1>
+
+            <p className="mt-2 text-slate-600">
+              Register a vehicle and assign it to an active shipment.
+            </p>
+          </div>
+
+          <Link
+            href="/dashboard/vehicles"
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+          >
+            Back to Vehicles
+          </Link>
+        </div>
+
+        <VehicleForm onSubmit={handleCreateVehicle} />
+      </div>
+    </main>
+  );
+}
+
+========================================
+VEHICLE DETAILS PAGE
+========================================
+type Props = {
+  params: Promise<{
+    id: string;
+  }>;
+};
+
+export default async function VehicleDetailsPage({ params }: Props) {
+  const { id } = await params;
+
+  return (
+    <main className="p-8">
+      <h1 className="text-3xl font-bold text-slate-900">
+        Vehicle Details
+      </h1>
+
+      <p className="mt-4 text-slate-600">
+        Vehicle ID: {id}
+      </p>
+    </main>
+  );
+}
+
+========================================
+EDIT VEHICLE PAGE
+========================================
+type Props = {
+  params: Promise<{
+    id: string;
+  }>;
+};
+
+export default async function EditVehiclePage({ params }: Props) {
+  const { id } = await params;
+
+  return (
+    <main className="p-8">
+      <h1 className="text-3xl font-bold text-slate-900">
+        Edit Vehicle
+      </h1>
+
+      <p className="mt-4 text-slate-600">
+        Editing Vehicle: {id}
+      </p>
+    </main>
+  );
+}
+
+========================================
+AUTH AND API REFERENCES
+========================================
+apps/web/src/types/auth.ts:17:  accessToken: string;
+apps/web/src/app/customers/page.tsx.before-dashboard-consolidation:11:import { apiFetch } from '@/lib/api';
+apps/web/src/app/customers/page.tsx.before-dashboard-consolidation:130:      const data = await apiFetch<Customer[]>(`/customers${query}`);
+apps/web/src/app/customers/page.tsx.before-dashboard-consolidation:218:        await apiFetch<Customer>(`/customers/${editingCustomer.id}`, {
+apps/web/src/app/customers/page.tsx.before-dashboard-consolidation:225:        await apiFetch<Customer>('/customers', {
+apps/web/src/app/customers/page.tsx.before-dashboard-consolidation:257:      await apiFetch<Customer>(`/customers/${customerToDelete.id}`, {
+apps/web/src/app/dashboard/customers/page.tsx:11:import { apiFetch } from '@/lib/api';
+apps/web/src/app/dashboard/customers/page.tsx:130:      const data = await apiFetch<Customer[]>(`/customers${query}`);
+apps/web/src/app/dashboard/customers/page.tsx:218:        await apiFetch<Customer>(`/customers/${editingCustomer.id}`, {
+apps/web/src/app/dashboard/customers/page.tsx:225:        await apiFetch<Customer>('/customers', {
+apps/web/src/app/dashboard/customers/page.tsx:257:      await apiFetch<Customer>(`/customers/${customerToDelete.id}`, {
+apps/web/src/app/dashboard/shipments/page.tsx.before-details-phase:5:import { apiFetch } from '@/lib/api';
+apps/web/src/app/dashboard/shipments/page.tsx.before-details-phase:158:      const data = await apiFetch<Shipment[]>(
+apps/web/src/app/dashboard/shipments/page.tsx.before-details-phase:177:        const data = await apiFetch<Customer[]>('/customers');
+apps/web/src/app/dashboard/shipments/page.tsx.before-details-phase:316:        await apiFetch<Shipment>(`/shipments/${editingShipment.id}`, {
+apps/web/src/app/dashboard/shipments/page.tsx.before-details-phase:323:        await apiFetch<Shipment>('/shipments', {
+apps/web/src/app/dashboard/shipments/page.tsx.before-details-phase:352:      await apiFetch<Shipment>(`/shipments/${shipmentToDelete.id}`, {
+apps/web/src/app/dashboard/shipments/[id]/page.tsx.backup-phase-8b2:8:import { apiFetch } from '@/lib/api';
+apps/web/src/app/dashboard/shipments/[id]/page.tsx.backup-phase-8b2:97:        const data = await apiFetch<Shipment>(
+apps/web/src/app/dashboard/shipments/[id]/edit/page.tsx:12:import { apiFetch } from '@/lib/api';
+apps/web/src/app/dashboard/shipments/[id]/edit/page.tsx:136:        const shipment = await apiFetch<Shipment>(
+apps/web/src/app/dashboard/shipments/[id]/edit/page.tsx:248:      await apiFetch<Shipment>(
+apps/web/src/app/dashboard/shipments/[id]/page.tsx.backup-before-documents-panel:9:import { apiFetch } from '@/lib/api';
+apps/web/src/app/dashboard/shipments/[id]/page.tsx.backup-before-documents-panel:98:        const data = await apiFetch<Shipment>(
+apps/web/src/app/dashboard/shipments/[id]/page.tsx.backup:7:import { apiFetch } from '@/lib/api';
+apps/web/src/app/dashboard/shipments/[id]/page.tsx.backup:96:        const data = await apiFetch<Shipment>(
+apps/web/src/app/dashboard/shipments/[id]/page.tsx:11:import { apiFetch } from '@/lib/api';
+apps/web/src/app/dashboard/shipments/[id]/page.tsx:100:        const data = await apiFetch<Shipment>(
+apps/web/src/app/dashboard/shipments/[id]/page.tsx.backup-before-documents:8:import { apiFetch } from '@/lib/api';
+apps/web/src/app/dashboard/shipments/[id]/page.tsx.backup-before-documents:97:        const data = await apiFetch<Shipment>(
+apps/web/src/app/dashboard/shipments/page.tsx:7:import { apiFetch } from '@/lib/api';
+apps/web/src/app/dashboard/shipments/page.tsx:166:      const data = await apiFetch<Shipment[]>(
+apps/web/src/app/dashboard/shipments/page.tsx:185:        const data = await apiFetch<Customer[]>('/customers');
+apps/web/src/app/dashboard/shipments/page.tsx:328:        await apiFetch<Shipment>(`/shipments/${editingShipment.id}`, {
+apps/web/src/app/dashboard/shipments/page.tsx:335:        await apiFetch<Shipment>('/shipments', {
+apps/web/src/app/dashboard/shipments/page.tsx:364:      await apiFetch<Shipment>(`/shipments/${shipmentToDelete.id}`, {
+apps/web/src/app/dashboard/invoices/new/page.tsx:12:import { apiFetch } from '@/lib/api';
+apps/web/src/app/dashboard/invoices/new/page.tsx:90:            apiFetch<InvoiceFormCustomer[]>(
+apps/web/src/app/dashboard/invoices/new/page.tsx:93:            apiFetch<InvoiceFormShipment[]>(
+apps/web/src/app/dashboard/documents/page.tsx:20:import { apiFetch } from '@/lib/api';
+apps/web/src/app/dashboard/documents/page.tsx:129:          await apiFetch<DocumentWithShipment[]>(
+apps/web/src/app/dashboard/page.tsx:8:import { apiFetch } from '@/lib/api';
+apps/web/src/app/dashboard/page.tsx:81:          await apiFetch<DashboardStats>(
+apps/web/src/components/auth/auth-guard.tsx:12:  getAccessToken,
+apps/web/src/components/auth/auth-guard.tsx:25:  return Boolean(getAccessToken() && getStoredUser());
+apps/web/src/components/auth/login-form.tsx:52:        response.accessToken,
+apps/web/src/lib/documents-api.ts:1:import { apiFetch } from '@/lib/api';
+apps/web/src/lib/documents-api.ts:2:import { getAccessToken } from '@/lib/auth-storage';
+apps/web/src/lib/documents-api.ts:10:  process.env.NEXT_PUBLIC_API_URL ??
+apps/web/src/lib/documents-api.ts:16:  return apiFetch<ShipmentDocumentResponse>(
+apps/web/src/lib/documents-api.ts:34:  return apiFetch<ShipmentDocument>(
+apps/web/src/lib/documents-api.ts:49:  return apiFetch<{
+apps/web/src/lib/documents-api.ts:62:      ? getAccessToken()
+apps/web/src/lib/documents-api.ts:75:        Authorization: `Bearer ${token}`,
+apps/web/src/lib/tracking-api.ts.backup-phase-7-6:1:import { apiFetch } from '@/lib/api';
+apps/web/src/lib/tracking-api.ts.backup-phase-7-6:9:  return apiFetch<ShipmentTrackingResponse>(
+apps/web/src/lib/auth-storage.ts:7:  accessToken: string,
+apps/web/src/lib/auth-storage.ts:14:  localStorage.setItem(TOKEN_KEY, accessToken);
+apps/web/src/lib/auth-storage.ts:15:  localStorage.setItem(USER_KEY, JSON.stringify(user));
+apps/web/src/lib/auth-storage.ts:18:export function getAccessToken(): string | null {
+apps/web/src/lib/auth-storage.ts:23:  return localStorage.getItem(TOKEN_KEY);
+apps/web/src/lib/auth-storage.ts:31:  const storedUser = localStorage.getItem(USER_KEY);
+apps/web/src/lib/auth-storage.ts:50:  localStorage.removeItem(TOKEN_KEY);
+apps/web/src/lib/auth-storage.ts:51:  localStorage.removeItem(USER_KEY);
+apps/web/src/lib/auth-storage.ts:55:  return Boolean(getAccessToken() && getStoredUser());
+apps/web/src/lib/invoices-api.ts:1:import { apiFetch } from '@/lib/api';
+apps/web/src/lib/invoices-api.ts:2:import { getAccessToken } from '@/lib/auth-storage';
+apps/web/src/lib/invoices-api.ts:10:  process.env.NEXT_PUBLIC_API_URL ??
+apps/web/src/lib/invoices-api.ts:34:  return apiFetch<Invoice[]>(
+apps/web/src/lib/invoices-api.ts:46:  return apiFetch<Invoice>('/invoices', {
+apps/web/src/lib/invoices-api.ts:55:  return apiFetch<Invoice>(
+apps/web/src/lib/invoices-api.ts:63:  return apiFetch<Invoice>(
+apps/web/src/lib/invoices-api.ts:76:      ? getAccessToken()
+apps/web/src/lib/invoices-api.ts:90:        Authorization: `Bearer ${token}`,
+apps/web/src/lib/api.ts:1:import { getAccessToken } from './auth-storage';
+apps/web/src/lib/api.ts:4:  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+apps/web/src/lib/api.ts:75:    typeof window !== 'undefined' ? getAccessToken() : null;
+apps/web/src/lib/api.ts:94:  if (token && !headers.has('Authorization')) {
+apps/web/src/lib/api.ts:95:    headers.set('Authorization', `Bearer ${token}`);
+apps/web/src/lib/api.ts:121:export async function apiFetch<T>(
+apps/web/src/lib/vehicles-api.ts:1:import { apiFetch } from '@/lib/api';
+apps/web/src/lib/vehicles-api.ts:38:  return apiFetch<Vehicle[]>(
+apps/web/src/lib/vehicles-api.ts:44:  return apiFetch<Vehicle>(`/vehicles/${id}`);
+apps/web/src/lib/vehicles-api.ts:50:  return apiFetch<Vehicle>('/vehicles', {
+apps/web/src/lib/vehicles-api.ts:60:  return apiFetch<Vehicle>(`/vehicles/${id}`, {
+apps/web/src/lib/vehicles-api.ts:67:  return apiFetch<Vehicle>(`/vehicles/${id}`, {
+apps/web/src/lib/tracking-api.ts:1:import { apiFetch } from '@/lib/api';
+apps/web/src/lib/tracking-api.ts:11:  return apiFetch<ShipmentTrackingResponse>(
+apps/web/src/lib/tracking-api.ts:19:  return apiFetch<TrackingEvent>('/tracking', {
+apps/web/src/lib/shipments-api.ts:1:import { apiFetch } from "@/lib/api";
+apps/web/src/lib/shipments-api.ts:28:  return apiFetch<Shipment[]>(
+apps/web/src/lib/shipments-api.ts:34:  return apiFetch<Shipment>(`/shipments/${id}`);
