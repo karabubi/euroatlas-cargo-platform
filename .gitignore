@@ -43,3 +43,8 @@ tracking-inspection.txt
 # Uploaded runtime files
 apps/api/uploads/documents/*
 !apps/api/uploads/documents/.gitkeep
+
+# Local project backups and inspection reports
+backups/
+phase-*-inspection.txt
+phase-*-audit.txt
