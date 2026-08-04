@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
+import VehiclePhotosPanel from '@/components/vehicle-photos/VehiclePhotosPanel';
+
 import { ApiError, apiFetch } from '@/lib/api';
 
 type VehicleStatus =
@@ -450,6 +452,10 @@ export default function VehicleDetailsPage() {
             </div>
           ) : null}
         </section>
+
+        <VehiclePhotosPanel
+          vehicleId={vehicle.id}
+        />
 
         <section className="rounded-3xl bg-white p-8 shadow-sm">
           <h2 className="text-2xl font-bold text-slate-950">
