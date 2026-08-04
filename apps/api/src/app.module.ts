@@ -8,6 +8,7 @@ import { CustomersModule } from './customers/customers.module';
 import { ShipmentsModule } from './shipments/shipments.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { VehiclePhotosModule } from './vehicle-photos/vehicle-photos.module';
+import { VehicleInspectionsModule } from './vehicle-inspections/vehicle-inspections.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { TrackingModule } from './tracking/tracking.module';
 
@@ -25,6 +26,7 @@ import { InvoicesModule } from './invoices/invoices.module';
     ShipmentsModule,
     VehiclesModule,
     VehiclePhotosModule,
+    VehicleInspectionsModule,
     DashboardModule,
     TrackingModule,
     DocumentsModule,
