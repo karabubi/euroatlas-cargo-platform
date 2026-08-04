@@ -138,7 +138,7 @@ export class VehicleInspectionPdfService {
         'Shipment',
         vehicle.shipment.shipmentNo,
         'Route',
-        `${vehicle.shipment.originCountry} → ${vehicle.shipment.destinationCountry}`,
+        `${vehicle.shipment.originCountry} to ${vehicle.shipment.destinationCountry}`,
       ],
     ]);
 
@@ -354,7 +354,10 @@ export class VehicleInspectionPdfService {
       .font('Helvetica-Bold')
       .fontSize(12)
       .fillColor('#0369a1')
-      .text(title.toUpperCase());
+      .text(title.toUpperCase(), 48, document.y, {
+        width: 499,
+        lineBreak: false,
+      });
 
     document
       .moveDown(0.25)
@@ -419,22 +422,23 @@ export class VehicleInspectionPdfService {
   }
 
   private drawFooter(document: PDFKit.PDFDocument): void {
-    const bottom = document.page.height - 37;
+    const footerY = document.page.height - document.page.margins.bottom - 16;
 
     document
       .strokeColor('#cbd5e1')
       .lineWidth(0.5)
-      .moveTo(48, bottom - 8)
-      .lineTo(547, bottom - 8)
+      .moveTo(48, footerY - 8)
+      .lineTo(547, footerY - 8)
       .stroke();
 
     document
       .font('Helvetica')
       .fontSize(8)
       .fillColor('#64748b')
-      .text('EuroAtlas Cargo · Vehicle Inspection Report', 48, bottom, {
+      .text('EuroAtlas Cargo - Vehicle Inspection Report', 48, footerY, {
         width: 499,
         align: 'center',
+        lineBreak: false,
       });
   }
 
