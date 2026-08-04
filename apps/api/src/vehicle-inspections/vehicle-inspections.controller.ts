@@ -6,17 +6,22 @@ import {
   Param,
   Patch,
   Post,
+  StreamableFile,
 } from '@nestjs/common';
 
 import { CreateDamageReportDto } from './dto/create-damage-report.dto';
 import { CreateVehicleInspectionDto } from './dto/create-vehicle-inspection.dto';
 import { UpdateDamageReportDto } from './dto/update-damage-report.dto';
 import { UpdateVehicleInspectionDto } from './dto/update-vehicle-inspection.dto';
+import { VehicleInspectionPdfService } from './vehicle-inspection-pdf.service';
 import { VehicleInspectionsService } from './vehicle-inspections.service';
 
 @Controller('vehicle-inspections')
 export class VehicleInspectionsController {
-  constructor(private readonly service: VehicleInspectionsService) {}
+  constructor(
+    private readonly service: VehicleInspectionsService,
+    private readonly pdfService: VehicleInspectionPdfService,
+  ) {}
 
   @Post()
   create(@Body() dto: CreateVehicleInspectionDto) {
@@ -31,6 +36,16 @@ export class VehicleInspectionsController {
   @Get('vehicle/:vehicleId')
   findByVehicle(@Param('vehicleId') vehicleId: string) {
     return this.service.findByVehicle(vehicleId);
+  }
+
+  @Get(':id/pdf')
+  async downloadPdf(@Param('id') id: string): Promise<StreamableFile> {
+    const { buffer, fileName } = await this.pdfService.generate(id);
+
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${fileName}"`,
+    });
   }
 
   @Get(':id')
