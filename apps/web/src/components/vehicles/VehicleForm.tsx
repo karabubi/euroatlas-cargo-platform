@@ -14,6 +14,8 @@ type VehicleFormProps = {
   onSubmit: (
     data: CreateVehicleInput,
   ) => Promise<void> | void;
+  initialValues?: Partial<CreateVehicleInput>;
+  submitLabel?: string;
 };
 
 type VehicleFormState = {
@@ -53,6 +55,43 @@ const initialFormState: VehicleFormState = {
   damageDescription: "",
   notes: "",
 };
+
+function createInitialFormState(
+  initialValues?: Partial<CreateVehicleInput>,
+): VehicleFormState {
+  if (!initialValues) {
+    return initialFormState;
+  }
+
+  return {
+    shipmentId: initialValues.shipmentId ?? "",
+    vin: initialValues.vin ?? "",
+    make: initialValues.make ?? "",
+    model: initialValues.model ?? "",
+    year:
+      initialValues.year === undefined
+        ? ""
+        : String(initialValues.year),
+    color: initialValues.color ?? "",
+    vehicleType: initialValues.vehicleType ?? "",
+    fuelType: initialValues.fuelType ?? "",
+    transmission: initialValues.transmission ?? "",
+    purchasePrice:
+      initialValues.purchasePrice === undefined
+        ? ""
+        : String(initialValues.purchasePrice),
+    declaredValue:
+      initialValues.declaredValue === undefined
+        ? ""
+        : String(initialValues.declaredValue),
+    hasKeys: initialValues.hasKeys ?? true,
+    isRunning: initialValues.isRunning ?? true,
+    hasDamage: initialValues.hasDamage ?? false,
+    damageDescription:
+      initialValues.damageDescription ?? "",
+    notes: initialValues.notes ?? "",
+  };
+}
 
 function getCustomerName(shipment: Shipment): string {
   const customer = shipment.customer;
@@ -102,9 +141,12 @@ function optionalNumber(value: string): number | undefined {
 
 export default function VehicleForm({
   onSubmit,
+  initialValues,
+  submitLabel = "Save Vehicle",
 }: VehicleFormProps) {
-  const [form, setForm] =
-    useState<VehicleFormState>(initialFormState);
+  const [form, setForm] = useState<VehicleFormState>(
+    () => createInitialFormState(initialValues),
+  );
 
   const [shipments, setShipments] =
     useState<Shipment[]>([]);
@@ -741,7 +783,7 @@ export default function VehicleForm({
         >
           {isSubmitting
             ? "Saving vehicle..."
-            : "Save Vehicle"}
+            : submitLabel}
         </button>
       </div>
     </form>
