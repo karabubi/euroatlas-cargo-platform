@@ -15,8 +15,6 @@ const allowedMimeTypes = new Set([
 
 export const vehiclePhotosUploadDirectory = join(
   process.cwd(),
-  'apps',
-  'api',
   'uploads',
   'vehicle-photos',
 );

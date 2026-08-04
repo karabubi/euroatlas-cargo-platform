@@ -48,3 +48,6 @@ apps/api/uploads/documents/*
 backups/
 phase-*-inspection.txt
 phase-*-audit.txt
+
+# Runtime uploads
+apps/api/uploads/
