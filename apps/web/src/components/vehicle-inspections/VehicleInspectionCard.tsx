@@ -8,6 +8,7 @@ import VehicleInspectionForm from './VehicleInspectionForm';
 
 import {
   deleteVehicleInspection,
+  downloadVehicleInspectionPdf,
 } from '@/lib/vehicle-inspections-api';
 import type {
   VehicleDamageReport,
@@ -101,6 +102,29 @@ export default function VehicleInspectionCard({
 
   const [errorMessage, setErrorMessage] =
     useState('');
+
+  const [isDownloadingPdf, setIsDownloadingPdf] =
+    useState(false);
+
+  async function handleDownloadPdf() {
+    try {
+      setErrorMessage('');
+      setIsDownloadingPdf(true);
+
+      await downloadVehicleInspectionPdf(
+        inspection.id,
+        inspection.inspectionNo,
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'The PDF could not be downloaded.',
+      );
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  }
 
   async function handleDelete() {
     const confirmed = window.confirm(
@@ -273,6 +297,17 @@ export default function VehicleInspectionCard({
               {isExpanded
                 ? 'Collapse'
                 : 'Expand'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handleDownloadPdf()}
+              disabled={isDownloadingPdf}
+              className="rounded-xl border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isDownloadingPdf
+                ? 'Downloading...'
+                : 'Download PDF'}
             </button>
 
             <button

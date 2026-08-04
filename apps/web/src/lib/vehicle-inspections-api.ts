@@ -114,3 +114,65 @@ export function deleteDamageReport(
     },
   );
 }
+
+export async function downloadVehicleInspectionPdf(
+  inspectionId: string,
+  inspectionNo: string,
+): Promise<void> {
+  const token =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('accessToken')
+      : null;
+
+  if (!token) {
+    throw new Error('Authentication token was not found.');
+  }
+
+  const apiUrl =
+    process.env.NEXT_PUBLIC_API_URL ??
+    'http://localhost:4000/api';
+
+  const response = await fetch(
+    `${apiUrl}/vehicle-inspections/${inspectionId}/pdf`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    let message =
+      'Vehicle inspection PDF could not be downloaded.';
+
+    try {
+      const body = (await response.json()) as {
+        message?: string | string[];
+      };
+
+      if (Array.isArray(body.message)) {
+        message = body.message.join(', ');
+      } else if (body.message) {
+        message = body.message;
+      }
+    } catch {
+      // Keep the default error message.
+    }
+
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = `${inspectionNo}.pdf`;
+
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+
+  URL.revokeObjectURL(objectUrl);
+}
+
