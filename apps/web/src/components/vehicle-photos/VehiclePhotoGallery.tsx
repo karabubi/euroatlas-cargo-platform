@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 
+import VehiclePhotoMetadataEditor from './VehiclePhotoMetadataEditor';
+
 import {
   deleteVehiclePhoto,
   downloadVehiclePhoto,
@@ -66,6 +68,10 @@ export default function VehiclePhotoGallery({
 
   const [errorMessage, setErrorMessage] =
     useState('');
+
+
+  const [editingPhotoId, setEditingPhotoId] =
+    useState<string | null>(null);
 
   async function handlePrimary(
     photo: VehiclePhoto,
@@ -285,6 +291,17 @@ export default function VehiclePhotoGallery({
                     type="button"
                     disabled={isBusy}
                     onClick={() =>
+                      setEditingPhotoId(photo.id)
+                    }
+                    className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() =>
                       void handleDelete(photo)
                     }
                     className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
@@ -294,6 +311,46 @@ export default function VehiclePhotoGallery({
                       : 'Delete'}
                   </button>
                 </div>
+
+                {editingPhotoId === photo.id ? (
+                  <div className="mt-5">
+                    <VehiclePhotoMetadataEditor
+                      photo={photo}
+                      onCancel={() =>
+                        setEditingPhotoId(null)
+                      }
+                      onSaved={(updatedPhoto) => {
+                        onChanged(
+                          photos.map((currentPhoto) => {
+                            if (
+                              updatedPhoto.isPrimary
+                            ) {
+                              return {
+                                ...currentPhoto,
+                                ...(
+                                  currentPhoto.id ===
+                                  updatedPhoto.id
+                                    ? updatedPhoto
+                                    : {
+                                        isPrimary:
+                                          false,
+                                      }
+                                ),
+                              };
+                            }
+
+                            return currentPhoto.id ===
+                              updatedPhoto.id
+                              ? updatedPhoto
+                              : currentPhoto;
+                          }),
+                        );
+
+                        setEditingPhotoId(null);
+                      }}
+                    />
+                  </div>
+                ) : null}
               </div>
             </article>
           );
