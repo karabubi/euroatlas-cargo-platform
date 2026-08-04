@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
+import VehicleInspectionList from '@/components/vehicle-inspections/VehicleInspectionList';
 import VehiclePhotosPanel from '@/components/vehicle-photos/VehiclePhotosPanel';
 
 import { ApiError, apiFetch } from '@/lib/api';
@@ -452,6 +453,10 @@ export default function VehicleDetailsPage() {
             </div>
           ) : null}
         </section>
+
+        <VehicleInspectionList
+          vehicleId={vehicle.id}
+        />
 
         <VehiclePhotosPanel
           vehicleId={vehicle.id}
