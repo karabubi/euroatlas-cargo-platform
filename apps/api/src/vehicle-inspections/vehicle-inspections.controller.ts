@@ -8,8 +8,14 @@ import {
   Post,
   Query,
   StreamableFile,
+  UseGuards,
 } from '@nestjs/common';
 
+import type { AuthenticatedUser } from '../auth/auth-user.type';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
+import { ChangeInspectionStatusDto } from './dto/change-inspection-status.dto';
 import { CreateDamageReportDto } from './dto/create-damage-report.dto';
 import { CreateVehicleInspectionDto } from './dto/create-vehicle-inspection.dto';
 import { UpdateDamageReportDto } from './dto/update-damage-report.dto';
@@ -18,6 +24,7 @@ import { VehicleInspectionQueryDto } from './dto/vehicle-inspection-query.dto';
 import { VehicleInspectionPdfService } from './vehicle-inspection-pdf.service';
 import { VehicleInspectionsService } from './vehicle-inspections.service';
 
+@UseGuards(JwtAuthGuard)
 @Controller('vehicle-inspections')
 export class VehicleInspectionsController {
   constructor(
@@ -26,8 +33,11 @@ export class VehicleInspectionsController {
   ) {}
 
   @Post()
-  create(@Body() dto: CreateVehicleInspectionDto) {
-    return this.service.create(dto);
+  create(
+    @Body() dto: CreateVehicleInspectionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.create(dto, user.email);
   }
 
   @Get()
@@ -50,14 +60,32 @@ export class VehicleInspectionsController {
     });
   }
 
+  @Get(':id/status-history')
+  getStatusHistory(@Param('id') id: string) {
+    return this.service.getStatusHistory(id);
+  }
+
+  @Patch(':id/status')
+  changeStatus(
+    @Param('id') id: string,
+    @Body() dto: ChangeInspectionStatusDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.changeStatus(id, dto, user.email);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateVehicleInspectionDto) {
-    return this.service.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateVehicleInspectionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.update(id, dto, user.email);
   }
 
   @Delete(':id')

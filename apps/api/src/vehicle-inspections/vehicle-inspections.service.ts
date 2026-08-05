@@ -1,7 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '../../generated/prisma/client';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InspectionStatus, Prisma } from '../../generated/prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { ChangeInspectionStatusDto } from './dto/change-inspection-status.dto';
 import { CreateDamageReportDto } from './dto/create-damage-report.dto';
 import { CreateVehicleInspectionDto } from './dto/create-vehicle-inspection.dto';
 import { UpdateDamageReportDto } from './dto/update-damage-report.dto';
@@ -12,32 +17,52 @@ import { VehicleInspectionQueryDto } from './dto/vehicle-inspection-query.dto';
 export class VehicleInspectionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateVehicleInspectionDto) {
+  async create(dto: CreateVehicleInspectionDto, changedBy?: string) {
     await this.ensureVehicleExists(dto.vehicleId);
 
     const inspectionNo = await this.generateInspectionNumber();
 
-    return this.prisma.vehicleInspection.create({
-      data: {
-        inspectionNo,
-        vehicleId: dto.vehicleId,
-        type: dto.type,
-        status: dto.status,
-        condition: dto.condition,
-        inspectionDate: dto.inspectionDate
-          ? new Date(dto.inspectionDate)
-          : undefined,
-        location: this.optionalText(dto.location),
-        inspectorName: this.optionalText(dto.inspectorName),
-        odometer: dto.odometer,
-        fuelLevel: dto.fuelLevel,
-        hasKeys: dto.hasKeys,
-        isRunning: dto.isRunning,
-        hasVisibleDamage: dto.hasVisibleDamage ?? false,
-        summary: this.optionalText(dto.summary),
-        notes: this.optionalText(dto.notes),
-      },
-      include: this.inspectionInclude,
+    const initialStatus = dto.status ?? InspectionStatus.DRAFT;
+
+    return this.prisma.$transaction(async (transaction) => {
+      const inspection = await transaction.vehicleInspection.create({
+        data: {
+          inspectionNo,
+          vehicleId: dto.vehicleId,
+          type: dto.type,
+          status: initialStatus,
+          condition: dto.condition,
+          inspectionDate: dto.inspectionDate
+            ? new Date(dto.inspectionDate)
+            : undefined,
+          location: this.optionalText(dto.location),
+          inspectorName: this.optionalText(dto.inspectorName),
+          odometer: dto.odometer,
+          fuelLevel: dto.fuelLevel,
+          hasKeys: dto.hasKeys,
+          isRunning: dto.isRunning,
+          hasVisibleDamage: dto.hasVisibleDamage ?? false,
+          summary: this.optionalText(dto.summary),
+          notes: this.optionalText(dto.notes),
+        },
+      });
+
+      await transaction.inspectionStatusHistory.create({
+        data: {
+          inspectionId: inspection.id,
+          fromStatus: null,
+          toStatus: initialStatus,
+          note: 'Inspection created.',
+          changedBy: changedBy?.trim() || null,
+        },
+      });
+
+      return transaction.vehicleInspection.findUniqueOrThrow({
+        where: {
+          id: inspection.id,
+        },
+        include: this.inspectionInclude,
+      });
     });
   }
 
@@ -155,62 +180,136 @@ export class VehicleInspectionsService {
     return inspection;
   }
 
-  async update(id: string, dto: UpdateVehicleInspectionDto) {
-    await this.findOne(id);
+  async update(
+    id: string,
+    dto: UpdateVehicleInspectionDto,
+    changedBy?: string,
+  ) {
+    const existing = await this.findOne(id);
 
     if (dto.vehicleId) {
       await this.ensureVehicleExists(dto.vehicleId);
     }
 
-    return this.prisma.vehicleInspection.update({
-      where: {
-        id,
-      },
-      data: {
-        ...(dto.vehicleId !== undefined && {
-          vehicleId: dto.vehicleId,
-        }),
-        ...(dto.type !== undefined && {
-          type: dto.type,
-        }),
-        ...(dto.status !== undefined && {
+    const statusChanged =
+      dto.status !== undefined && dto.status !== existing.status;
+
+    if (statusChanged && dto.status) {
+      this.assertStatusTransition(existing.status, dto.status);
+    }
+
+    return this.prisma.$transaction(async (transaction) => {
+      if (statusChanged && dto.status) {
+        await transaction.inspectionStatusHistory.create({
+          data: {
+            inspectionId: id,
+            fromStatus: existing.status,
+            toStatus: dto.status,
+            note: null,
+            changedBy: changedBy?.trim() || null,
+          },
+        });
+      }
+
+      return transaction.vehicleInspection.update({
+        where: {
+          id,
+        },
+        data: {
+          ...(dto.vehicleId !== undefined && {
+            vehicleId: dto.vehicleId,
+          }),
+          ...(dto.type !== undefined && {
+            type: dto.type,
+          }),
+          ...(dto.status !== undefined && {
+            status: dto.status,
+          }),
+          ...(dto.condition !== undefined && {
+            condition: dto.condition,
+          }),
+          ...(dto.inspectionDate !== undefined && {
+            inspectionDate: new Date(dto.inspectionDate),
+          }),
+          ...(dto.location !== undefined && {
+            location: this.optionalText(dto.location),
+          }),
+          ...(dto.inspectorName !== undefined && {
+            inspectorName: this.optionalText(dto.inspectorName),
+          }),
+          ...(dto.odometer !== undefined && {
+            odometer: dto.odometer,
+          }),
+          ...(dto.fuelLevel !== undefined && {
+            fuelLevel: dto.fuelLevel,
+          }),
+          ...(dto.hasKeys !== undefined && {
+            hasKeys: dto.hasKeys,
+          }),
+          ...(dto.isRunning !== undefined && {
+            isRunning: dto.isRunning,
+          }),
+          ...(dto.hasVisibleDamage !== undefined && {
+            hasVisibleDamage: dto.hasVisibleDamage,
+          }),
+          ...(dto.summary !== undefined && {
+            summary: this.optionalText(dto.summary),
+          }),
+          ...(dto.notes !== undefined && {
+            notes: this.optionalText(dto.notes),
+          }),
+        },
+        include: this.inspectionInclude,
+      });
+    });
+  }
+
+  async changeStatus(
+    id: string,
+    dto: ChangeInspectionStatusDto,
+    changedBy?: string,
+  ) {
+    const existing = await this.findOne(id);
+
+    if (existing.status === dto.status) {
+      throw new ConflictException(`Inspection is already ${dto.status}.`);
+    }
+
+    this.assertStatusTransition(existing.status, dto.status);
+
+    return this.prisma.$transaction(async (transaction) => {
+      await transaction.inspectionStatusHistory.create({
+        data: {
+          inspectionId: id,
+          fromStatus: existing.status,
+          toStatus: dto.status,
+          note: this.optionalText(dto.note),
+          changedBy: changedBy?.trim() || null,
+        },
+      });
+
+      return transaction.vehicleInspection.update({
+        where: {
+          id,
+        },
+        data: {
           status: dto.status,
-        }),
-        ...(dto.condition !== undefined && {
-          condition: dto.condition,
-        }),
-        ...(dto.inspectionDate !== undefined && {
-          inspectionDate: new Date(dto.inspectionDate),
-        }),
-        ...(dto.location !== undefined && {
-          location: this.optionalText(dto.location),
-        }),
-        ...(dto.inspectorName !== undefined && {
-          inspectorName: this.optionalText(dto.inspectorName),
-        }),
-        ...(dto.odometer !== undefined && {
-          odometer: dto.odometer,
-        }),
-        ...(dto.fuelLevel !== undefined && {
-          fuelLevel: dto.fuelLevel,
-        }),
-        ...(dto.hasKeys !== undefined && {
-          hasKeys: dto.hasKeys,
-        }),
-        ...(dto.isRunning !== undefined && {
-          isRunning: dto.isRunning,
-        }),
-        ...(dto.hasVisibleDamage !== undefined && {
-          hasVisibleDamage: dto.hasVisibleDamage,
-        }),
-        ...(dto.summary !== undefined && {
-          summary: this.optionalText(dto.summary),
-        }),
-        ...(dto.notes !== undefined && {
-          notes: this.optionalText(dto.notes),
-        }),
+        },
+        include: this.inspectionInclude,
+      });
+    });
+  }
+
+  async getStatusHistory(id: string) {
+    await this.findOne(id);
+
+    return this.prisma.inspectionStatusHistory.findMany({
+      where: {
+        inspectionId: id,
       },
-      include: this.inspectionInclude,
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
   }
 
@@ -482,6 +581,29 @@ export class VehicleInspectionsService {
     };
   }
 
+  private assertStatusTransition(
+    fromStatus: InspectionStatus,
+    toStatus: InspectionStatus,
+  ): void {
+    const allowedTransitions: Record<
+      InspectionStatus,
+      readonly InspectionStatus[]
+    > = {
+      DRAFT: [InspectionStatus.IN_PROGRESS, InspectionStatus.CANCELLED],
+      IN_PROGRESS: [InspectionStatus.COMPLETED, InspectionStatus.CANCELLED],
+      COMPLETED: [InspectionStatus.IN_PROGRESS],
+      CANCELLED: [InspectionStatus.DRAFT],
+    };
+
+    const isAllowed = allowedTransitions[fromStatus].includes(toStatus);
+
+    if (!isAllowed) {
+      throw new ConflictException(
+        `Inspection status cannot change from ${fromStatus} to ${toStatus}.`,
+      );
+    }
+  }
+
   private async findDamageReport(id: string) {
     const damageReport = await this.prisma.vehicleDamageReport.findUnique({
       where: {
@@ -551,6 +673,11 @@ export class VehicleInspectionsService {
       },
     },
     damageReports: {
+      orderBy: {
+        createdAt: 'desc' as const,
+      },
+    },
+    statusHistory: {
       orderBy: {
         createdAt: 'desc' as const,
       },
