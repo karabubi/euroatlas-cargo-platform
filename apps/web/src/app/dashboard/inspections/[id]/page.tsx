@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import InspectionStatusWorkflow from "@/components/vehicle-inspections/InspectionStatusWorkflow";
 import VehicleInspectionCard from "@/components/vehicle-inspections/VehicleInspectionCard";
 import { getVehicleInspection } from "@/lib/vehicle-inspections-api";
 import type { VehicleInspection } from "@/types/vehicle-inspection";
@@ -118,11 +119,18 @@ export default function InspectionDetailsPage() {
       ) : null}
 
       {!isLoading && inspection ? (
-        <VehicleInspectionCard
-          inspection={inspection}
-          onChanged={setInspection}
-          onDeleted={handleDeleted}
-        />
+        <>
+          <InspectionStatusWorkflow
+            inspection={inspection}
+            onChanged={setInspection}
+          />
+
+          <VehicleInspectionCard
+            inspection={inspection}
+            onChanged={setInspection}
+            onDeleted={handleDeleted}
+          />
+        </>
       ) : null}
     </main>
   );

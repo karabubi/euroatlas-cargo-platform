@@ -60,6 +60,21 @@ export type InspectionVehicle = {
   };
 };
 
+export type InspectionStatusHistory = {
+  id: string;
+  inspectionId: string;
+  fromStatus: InspectionStatus | null;
+  toStatus: InspectionStatus;
+  note: string | null;
+  changedBy: string | null;
+  createdAt: string;
+};
+
+export type ChangeInspectionStatusInput = {
+  status: InspectionStatus;
+  note?: string;
+};
+
 export type VehicleInspection = {
   id: string;
   inspectionNo: string;
@@ -81,6 +96,7 @@ export type VehicleInspection = {
   updatedAt: string;
   vehicle: InspectionVehicle;
   damageReports: VehicleDamageReport[];
+  statusHistory: InspectionStatusHistory[];
   _count?: {
     damageReports: number;
   };

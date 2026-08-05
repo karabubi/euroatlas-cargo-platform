@@ -1,9 +1,11 @@
 import { apiFetch } from "@/lib/api";
 import type {
+  ChangeInspectionStatusInput,
   CreateDamageReportInput,
   CreateVehicleInspectionInput,
   UpdateDamageReportInput,
   UpdateVehicleInspectionInput,
+  InspectionStatusHistory,
   VehicleDamageReport,
   VehicleInspection,
   VehicleInspectionDashboardQuery,
@@ -68,6 +70,27 @@ export function getVehicleInspection(
   inspectionId: string,
 ): Promise<VehicleInspection> {
   return apiFetch<VehicleInspection>(`/vehicle-inspections/${inspectionId}`);
+}
+
+export function getInspectionStatusHistory(
+  inspectionId: string,
+): Promise<InspectionStatusHistory[]> {
+  return apiFetch<InspectionStatusHistory[]>(
+    `/vehicle-inspections/${inspectionId}/status-history`,
+  );
+}
+
+export function changeInspectionStatus(
+  inspectionId: string,
+  input: ChangeInspectionStatusInput,
+): Promise<VehicleInspection> {
+  return apiFetch<VehicleInspection>(
+    `/vehicle-inspections/${inspectionId}/status`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 export function createVehicleInspection(
