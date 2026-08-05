@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   StreamableFile,
 } from '@nestjs/common';
 
@@ -13,6 +14,7 @@ import { CreateDamageReportDto } from './dto/create-damage-report.dto';
 import { CreateVehicleInspectionDto } from './dto/create-vehicle-inspection.dto';
 import { UpdateDamageReportDto } from './dto/update-damage-report.dto';
 import { UpdateVehicleInspectionDto } from './dto/update-vehicle-inspection.dto';
+import { VehicleInspectionQueryDto } from './dto/vehicle-inspection-query.dto';
 import { VehicleInspectionPdfService } from './vehicle-inspection-pdf.service';
 import { VehicleInspectionsService } from './vehicle-inspections.service';
 
@@ -29,8 +31,8 @@ export class VehicleInspectionsController {
   }
 
   @Get()
-  findAll() {
-    return this.service.findAll();
+  findAll(@Query() query: VehicleInspectionQueryDto) {
+    return this.service.findAll(query);
   }
 
   @Get('vehicle/:vehicleId')

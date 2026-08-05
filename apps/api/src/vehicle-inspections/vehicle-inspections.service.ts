@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '../../generated/prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDamageReportDto } from './dto/create-damage-report.dto';
 import { CreateVehicleInspectionDto } from './dto/create-vehicle-inspection.dto';
 import { UpdateDamageReportDto } from './dto/update-damage-report.dto';
 import { UpdateVehicleInspectionDto } from './dto/update-vehicle-inspection.dto';
+import { VehicleInspectionQueryDto } from './dto/vehicle-inspection-query.dto';
 
 @Injectable()
 export class VehicleInspectionsService {
@@ -39,18 +41,84 @@ export class VehicleInspectionsService {
     });
   }
 
-  findAll() {
-    return this.prisma.vehicleInspection.findMany({
-      orderBy: [
-        {
-          inspectionDate: 'desc',
-        },
-        {
-          createdAt: 'desc',
-        },
-      ],
-      include: this.inspectionInclude,
-    });
+  async findAll(query: VehicleInspectionQueryDto) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+    const skip = (page - 1) * pageSize;
+
+    const where = this.buildInspectionWhere(query);
+
+    const [inspections, total, completed, withDamage, totalDamageReports] =
+      await this.prisma.$transaction([
+        this.prisma.vehicleInspection.findMany({
+          where,
+          skip,
+          take: pageSize,
+          orderBy: [
+            {
+              inspectionDate: 'desc',
+            },
+            {
+              createdAt: 'desc',
+            },
+          ],
+          include: this.inspectionInclude,
+        }),
+
+        this.prisma.vehicleInspection.count({
+          where,
+        }),
+
+        this.prisma.vehicleInspection.count({
+          where: {
+            ...where,
+            status: 'COMPLETED',
+          },
+        }),
+
+        this.prisma.vehicleInspection.count({
+          where: {
+            ...where,
+            hasVisibleDamage: true,
+          },
+        }),
+
+        this.prisma.vehicleDamageReport.count({
+          where: {
+            inspection: {
+              is: where,
+            },
+          },
+        }),
+      ]);
+
+    const totalPages = total === 0 ? 1 : Math.ceil(total / pageSize);
+
+    return {
+      data: inspections,
+
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages,
+        hasPreviousPage: page > 1,
+        hasNextPage: page < totalPages,
+      },
+
+      statistics: {
+        total,
+        completed,
+        inProgress: await this.prisma.vehicleInspection.count({
+          where: {
+            ...where,
+            status: 'IN_PROGRESS',
+          },
+        }),
+        withDamage,
+        totalDamageReports,
+      },
+    };
   }
 
   async findByVehicle(vehicleId: string) {
@@ -256,6 +324,161 @@ export class VehicleInspectionsService {
     return {
       message: 'Vehicle damage report deleted successfully.',
       id,
+    };
+  }
+
+  private buildInspectionWhere(
+    query: VehicleInspectionQueryDto,
+  ): Prisma.VehicleInspectionWhereInput {
+    const search = query.search?.trim();
+
+    const dateFrom = query.dateFrom ? new Date(query.dateFrom) : undefined;
+
+    const dateTo = query.dateTo ? new Date(query.dateTo) : undefined;
+
+    if (dateTo) {
+      dateTo.setHours(23, 59, 59, 999);
+    }
+
+    return {
+      ...(query.type && {
+        type: query.type,
+      }),
+
+      ...(query.status && {
+        status: query.status,
+      }),
+
+      ...(query.condition && {
+        condition: query.condition,
+      }),
+
+      ...(query.hasVisibleDamage !== undefined && {
+        hasVisibleDamage: query.hasVisibleDamage,
+      }),
+
+      ...((dateFrom || dateTo) && {
+        inspectionDate: {
+          ...(dateFrom && {
+            gte: dateFrom,
+          }),
+
+          ...(dateTo && {
+            lte: dateTo,
+          }),
+        },
+      }),
+
+      ...(query.damageSeverity && {
+        damageReports: {
+          some: {
+            severity: query.damageSeverity,
+          },
+        },
+      }),
+
+      ...(search && {
+        OR: [
+          {
+            inspectionNo: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+          {
+            inspectorName: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+          {
+            location: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+          {
+            summary: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+          {
+            notes: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+          {
+            vehicle: {
+              is: {
+                OR: [
+                  {
+                    vehicleNo: {
+                      contains: search,
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    vin: {
+                      contains: search,
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    make: {
+                      contains: search,
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    model: {
+                      contains: search,
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    shipment: {
+                      is: {
+                        shipmentNo: {
+                          contains: search,
+                          mode: 'insensitive',
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          {
+            damageReports: {
+              some: {
+                OR: [
+                  {
+                    title: {
+                      contains: search,
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    description: {
+                      contains: search,
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    repairNotes: {
+                      contains: search,
+                      mode: 'insensitive',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      }),
     };
   }
 
