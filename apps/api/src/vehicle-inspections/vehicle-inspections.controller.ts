@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ChangeInspectionStatusDto } from './dto/change-inspection-status.dto';
 import { CreateDamageReportDto } from './dto/create-damage-report.dto';
 import { CreateVehicleInspectionDto } from './dto/create-vehicle-inspection.dto';
+import { InspectionApprovalActionDto } from './dto/inspection-approval-action.dto';
 import { UpdateDamageReportDto } from './dto/update-damage-report.dto';
 import { UpdateVehicleInspectionDto } from './dto/update-vehicle-inspection.dto';
 import { VehicleInspectionQueryDto } from './dto/vehicle-inspection-query.dto';
@@ -58,6 +59,38 @@ export class VehicleInspectionsController {
       type: 'application/pdf',
       disposition: `attachment; filename="${fileName}"`,
     });
+  }
+
+  @Get(':id/approval-history')
+  getApprovalHistory(@Param('id') id: string) {
+    return this.service.getApprovalHistory(id);
+  }
+
+  @Patch(':id/approve')
+  approve(
+    @Param('id') id: string,
+    @Body() dto: InspectionApprovalActionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.approve(id, user, dto.note);
+  }
+
+  @Patch(':id/reject')
+  reject(
+    @Param('id') id: string,
+    @Body() dto: InspectionApprovalActionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.reject(id, user, dto.note);
+  }
+
+  @Patch(':id/approval/revoke')
+  revokeApproval(
+    @Param('id') id: string,
+    @Body() dto: InspectionApprovalActionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.revokeApproval(id, user, dto.note);
   }
 
   @Get(':id/status-history')

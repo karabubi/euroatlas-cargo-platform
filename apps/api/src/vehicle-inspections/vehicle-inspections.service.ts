@@ -3,7 +3,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InspectionStatus, Prisma } from '../../generated/prisma/client';
+import {
+  InspectionApprovalStatus,
+  InspectionStatus,
+  Prisma,
+} from '../../generated/prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { ChangeInspectionStatusDto } from './dto/change-inspection-status.dto';
@@ -304,6 +308,193 @@ export class VehicleInspectionsService {
     await this.findOne(id);
 
     return this.prisma.inspectionStatusHistory.findMany({
+      where: {
+        inspectionId: id,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async approve(
+    id: string,
+    user: {
+      id: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+    },
+    note?: string,
+  ) {
+    const inspection = await this.findOne(id);
+
+    if (inspection.status !== InspectionStatus.COMPLETED) {
+      throw new ConflictException(
+        'Only completed inspections can be approved.',
+      );
+    }
+
+    if (inspection.approvalStatus === InspectionApprovalStatus.APPROVED) {
+      throw new ConflictException('This inspection is already approved.');
+    }
+
+    const changedByName = [user.firstName, user.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    const approvalNote = this.optionalText(note);
+
+    return this.prisma.$transaction(async (transaction) => {
+      await transaction.inspectionApprovalHistory.create({
+        data: {
+          inspectionId: id,
+          fromStatus: inspection.approvalStatus,
+          toStatus: InspectionApprovalStatus.APPROVED,
+          note: approvalNote,
+          changedBy: user.email,
+          changedByName: changedByName || null,
+        },
+      });
+
+      return transaction.vehicleInspection.update({
+        where: {
+          id,
+        },
+        data: {
+          approvalStatus: InspectionApprovalStatus.APPROVED,
+          approvedBy: user.email,
+          approvedAt: new Date(),
+          rejectedBy: null,
+          rejectedAt: null,
+          approvalNote,
+        },
+        include: this.inspectionInclude,
+      });
+    });
+  }
+
+  async reject(
+    id: string,
+    user: {
+      id: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+    },
+    note?: string,
+  ) {
+    const inspection = await this.findOne(id);
+
+    if (inspection.status !== InspectionStatus.COMPLETED) {
+      throw new ConflictException(
+        'Only completed inspections can be rejected.',
+      );
+    }
+
+    if (inspection.approvalStatus === InspectionApprovalStatus.REJECTED) {
+      throw new ConflictException('This inspection is already rejected.');
+    }
+
+    const rejectionNote = this.optionalText(note);
+
+    if (!rejectionNote) {
+      throw new ConflictException('A rejection note is required.');
+    }
+
+    const changedByName = [user.firstName, user.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    return this.prisma.$transaction(async (transaction) => {
+      await transaction.inspectionApprovalHistory.create({
+        data: {
+          inspectionId: id,
+          fromStatus: inspection.approvalStatus,
+          toStatus: InspectionApprovalStatus.REJECTED,
+          note: rejectionNote,
+          changedBy: user.email,
+          changedByName: changedByName || null,
+        },
+      });
+
+      return transaction.vehicleInspection.update({
+        where: {
+          id,
+        },
+        data: {
+          approvalStatus: InspectionApprovalStatus.REJECTED,
+          approvedBy: null,
+          approvedAt: null,
+          rejectedBy: user.email,
+          rejectedAt: new Date(),
+          approvalNote: rejectionNote,
+        },
+        include: this.inspectionInclude,
+      });
+    });
+  }
+
+  async revokeApproval(
+    id: string,
+    user: {
+      id: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+    },
+    note?: string,
+  ) {
+    const inspection = await this.findOne(id);
+
+    if (inspection.approvalStatus === InspectionApprovalStatus.PENDING) {
+      throw new ConflictException(
+        'This inspection already has pending approval.',
+      );
+    }
+
+    const changedByName = [user.firstName, user.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    const approvalNote = this.optionalText(note);
+
+    return this.prisma.$transaction(async (transaction) => {
+      await transaction.inspectionApprovalHistory.create({
+        data: {
+          inspectionId: id,
+          fromStatus: inspection.approvalStatus,
+          toStatus: InspectionApprovalStatus.PENDING,
+          note: approvalNote,
+          changedBy: user.email,
+          changedByName: changedByName || null,
+        },
+      });
+
+      return transaction.vehicleInspection.update({
+        where: {
+          id,
+        },
+        data: {
+          approvalStatus: InspectionApprovalStatus.PENDING,
+          approvedBy: null,
+          approvedAt: null,
+          rejectedBy: null,
+          rejectedAt: null,
+          approvalNote,
+        },
+        include: this.inspectionInclude,
+      });
+    });
+  }
+
+  async getApprovalHistory(id: string) {
+    await this.findOne(id);
+
+    return this.prisma.inspectionApprovalHistory.findMany({
       where: {
         inspectionId: id,
       },
@@ -678,6 +869,11 @@ export class VehicleInspectionsService {
       },
     },
     statusHistory: {
+      orderBy: {
+        createdAt: 'desc' as const,
+      },
+    },
+    approvalHistory: {
       orderBy: {
         createdAt: 'desc' as const,
       },
