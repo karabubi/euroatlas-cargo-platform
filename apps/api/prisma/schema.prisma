@@ -310,6 +310,12 @@ enum InspectionStatus {
   CANCELLED
 }
 
+enum InspectionApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum InspectionCondition {
   EXCELLENT
   GOOD
@@ -340,33 +346,41 @@ enum DamageArea {
 }
 
 model VehicleInspection {
-  id               String               @id @default(uuid())
-  inspectionNo     String               @unique
+  id               String                   @id @default(uuid())
+  inspectionNo     String                   @unique
   vehicleId        String
   type             InspectionType
-  status           InspectionStatus     @default(DRAFT)
+  status           InspectionStatus         @default(DRAFT)
   condition        InspectionCondition?
-  inspectionDate   DateTime             @default(now())
+  inspectionDate   DateTime                 @default(now())
   location         String?
   inspectorName    String?
   odometer         Int?
   fuelLevel        Int?
   hasKeys          Boolean?
   isRunning        Boolean?
-  hasVisibleDamage Boolean              @default(false)
+  hasVisibleDamage Boolean                  @default(false)
+  approvalStatus   InspectionApprovalStatus @default(PENDING)
+  approvedBy       String?
+  approvedAt       DateTime?
+  rejectedBy       String?
+  rejectedAt       DateTime?
+  approvalNote     String?
   summary          String?
   notes            String?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
 
-  vehicle       Vehicle                   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  damageReports VehicleDamageReport[]
-  statusHistory InspectionStatusHistory[]
+  vehicle         Vehicle                     @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  damageReports   VehicleDamageReport[]
+  statusHistory   InspectionStatusHistory[]
+  approvalHistory InspectionApprovalHistory[]
 
   @@index([vehicleId])
   @@index([inspectionNo])
   @@index([type])
   @@index([status])
+  @@index([approvalStatus])
   @@index([inspectionDate])
 }
 
@@ -405,5 +419,23 @@ model InspectionStatusHistory {
 
   @@index([inspectionId])
   @@index([toStatus])
+  @@index([createdAt])
+}
+
+model InspectionApprovalHistory {
+  id            String                    @id @default(uuid())
+  inspectionId  String
+  fromStatus    InspectionApprovalStatus?
+  toStatus      InspectionApprovalStatus
+  note          String?
+  changedBy     String
+  changedByName String?
+  createdAt     DateTime                  @default(now())
+
+  inspection VehicleInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@index([inspectionId])
+  @@index([toStatus])
+  @@index([changedBy])
   @@index([createdAt])
 }
