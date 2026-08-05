@@ -1,4 +1,4 @@
-import { apiFetch } from '@/lib/api';
+import { apiFetch } from "@/lib/api";
 import type {
   CreateDamageReportInput,
   CreateVehicleInspectionInput,
@@ -6,7 +6,7 @@ import type {
   UpdateVehicleInspectionInput,
   VehicleDamageReport,
   VehicleInspection,
-} from '@/types/vehicle-inspection';
+} from "@/types/vehicle-inspection";
 
 export function getVehicleInspections(
   vehicleId: string,
@@ -16,49 +16,36 @@ export function getVehicleInspections(
   );
 }
 
-export function getAllVehicleInspections():
-  Promise<VehicleInspection[]> {
-  return apiFetch<VehicleInspection[]>(
-    '/vehicle-inspections',
-  );
+export function getAllVehicleInspections(): Promise<VehicleInspection[]> {
+  return apiFetch<VehicleInspection[]>("/vehicle-inspections");
 }
 
 export function getVehicleInspection(
   inspectionId: string,
 ): Promise<VehicleInspection> {
-  return apiFetch<VehicleInspection>(
-    `/vehicle-inspections/${inspectionId}`,
-  );
+  return apiFetch<VehicleInspection>(`/vehicle-inspections/${inspectionId}`);
 }
 
 export function createVehicleInspection(
   input: CreateVehicleInspectionInput,
 ): Promise<VehicleInspection> {
-  return apiFetch<VehicleInspection>(
-    '/vehicle-inspections',
-    {
-      method: 'POST',
-      body: JSON.stringify(input),
-    },
-  );
+  return apiFetch<VehicleInspection>("/vehicle-inspections", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export function updateVehicleInspection(
   inspectionId: string,
   input: UpdateVehicleInspectionInput,
 ): Promise<VehicleInspection> {
-  return apiFetch<VehicleInspection>(
-    `/vehicle-inspections/${inspectionId}`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify(input),
-    },
-  );
+  return apiFetch<VehicleInspection>(`/vehicle-inspections/${inspectionId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 
-export function deleteVehicleInspection(
-  inspectionId: string,
-): Promise<{
+export function deleteVehicleInspection(inspectionId: string): Promise<{
   message: string;
   id: string;
   inspectionNo: string;
@@ -68,7 +55,7 @@ export function deleteVehicleInspection(
     id: string;
     inspectionNo: string;
   }>(`/vehicle-inspections/${inspectionId}`, {
-    method: 'DELETE',
+    method: "DELETE",
   });
 }
 
@@ -79,7 +66,7 @@ export function createDamageReport(
   return apiFetch<VehicleDamageReport>(
     `/vehicle-inspections/${inspectionId}/damage-reports`,
     {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(input),
     },
   );
@@ -92,27 +79,22 @@ export function updateDamageReport(
   return apiFetch<VehicleDamageReport>(
     `/vehicle-inspections/damage-reports/${reportId}`,
     {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(input),
     },
   );
 }
 
-export function deleteDamageReport(
-  reportId: string,
-): Promise<{
+export function deleteDamageReport(reportId: string): Promise<{
   message: string;
   id: string;
 }> {
   return apiFetch<{
     message: string;
     id: string;
-  }>(
-    `/vehicle-inspections/damage-reports/${reportId}`,
-    {
-      method: 'DELETE',
-    },
-  );
+  }>(`/vehicle-inspections/damage-reports/${reportId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function downloadVehicleInspectionPdf(
@@ -120,21 +102,19 @@ export async function downloadVehicleInspectionPdf(
   inspectionNo: string,
 ): Promise<void> {
   const token =
-    typeof window !== 'undefined'
-      ? localStorage.getItem('accessToken') ??
-        localStorage.getItem('token') ??
-        localStorage.getItem('authToken') ??
-        localStorage.getItem('access_token') ??
-        localStorage.getItem('euroatlas_access_token')
+    typeof window !== "undefined"
+      ? (localStorage.getItem("accessToken") ??
+        localStorage.getItem("token") ??
+        localStorage.getItem("authToken") ??
+        localStorage.getItem("access_token") ??
+        localStorage.getItem("euroatlas_access_token"))
       : null;
 
   if (!token) {
-    throw new Error('Authentication token was not found.');
+    throw new Error("Authentication token was not found.");
   }
 
-  const apiUrl =
-    process.env.NEXT_PUBLIC_API_URL ??
-    'http://localhost:4000/api';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
   const response = await fetch(
     `${apiUrl}/vehicle-inspections/${inspectionId}/pdf`,
@@ -146,8 +126,7 @@ export async function downloadVehicleInspectionPdf(
   );
 
   if (!response.ok) {
-    let message =
-      'Vehicle inspection PDF could not be downloaded.';
+    let message = "Vehicle inspection PDF could not be downloaded.";
 
     try {
       const body = (await response.json()) as {
@@ -155,7 +134,7 @@ export async function downloadVehicleInspectionPdf(
       };
 
       if (Array.isArray(body.message)) {
-        message = body.message.join(', ');
+        message = body.message.join(", ");
       } else if (body.message) {
         message = body.message;
       }
@@ -169,7 +148,7 @@ export async function downloadVehicleInspectionPdf(
   const blob = await response.blob();
   const objectUrl = URL.createObjectURL(blob);
 
-  const anchor = document.createElement('a');
+  const anchor = document.createElement("a");
   anchor.href = objectUrl;
   anchor.download = `${inspectionNo}.pdf`;
 
@@ -179,4 +158,3 @@ export async function downloadVehicleInspectionPdf(
 
   URL.revokeObjectURL(objectUrl);
 }
-

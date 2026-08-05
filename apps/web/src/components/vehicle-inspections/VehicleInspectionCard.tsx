@@ -1,78 +1,70 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 
-import DamageReportCard from './DamageReportCard';
-import DamageReportForm from './DamageReportForm';
-import VehicleInspectionForm from './VehicleInspectionForm';
+import DamageReportCard from "./DamageReportCard";
+import DamageReportForm from "./DamageReportForm";
+import VehicleInspectionForm from "./VehicleInspectionForm";
 
 import {
   deleteVehicleInspection,
   downloadVehicleInspectionPdf,
-} from '@/lib/vehicle-inspections-api';
+} from "@/lib/vehicle-inspections-api";
 import type {
   VehicleDamageReport,
   VehicleInspection,
-} from '@/types/vehicle-inspection';
-import {
-  formatInspectionValue,
-} from '@/types/vehicle-inspection';
+} from "@/types/vehicle-inspection";
+import { formatInspectionValue } from "@/types/vehicle-inspection";
 
 type VehicleInspectionCardProps = {
   inspection: VehicleInspection;
-  onChanged: (
-    inspection: VehicleInspection,
-  ) => void;
+  onChanged: (inspection: VehicleInspection) => void;
   onDeleted: (inspectionId: string) => void;
 };
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(new Date(value));
 }
 
-function statusClass(
-  status: VehicleInspection['status'],
-): string {
+function statusClass(status: VehicleInspection["status"]): string {
   switch (status) {
-    case 'COMPLETED':
-      return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+    case "COMPLETED":
+      return "bg-emerald-50 text-emerald-700 ring-emerald-200";
 
-    case 'IN_PROGRESS':
-      return 'bg-sky-50 text-sky-700 ring-sky-200';
+    case "IN_PROGRESS":
+      return "bg-sky-50 text-sky-700 ring-sky-200";
 
-    case 'CANCELLED':
-      return 'bg-red-50 text-red-700 ring-red-200';
+    case "CANCELLED":
+      return "bg-red-50 text-red-700 ring-red-200";
 
     default:
-      return 'bg-slate-100 text-slate-700 ring-slate-200';
+      return "bg-slate-100 text-slate-700 ring-slate-200";
   }
 }
 
-function conditionClass(
-  condition: VehicleInspection['condition'],
-): string {
+function conditionClass(condition: VehicleInspection["condition"]): string {
   switch (condition) {
-    case 'EXCELLENT':
-      return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+    case "EXCELLENT":
+      return "bg-emerald-50 text-emerald-700 ring-emerald-200";
 
-    case 'GOOD':
-      return 'bg-sky-50 text-sky-700 ring-sky-200';
+    case "GOOD":
+      return "bg-sky-50 text-sky-700 ring-sky-200";
 
-    case 'FAIR':
-      return 'bg-amber-50 text-amber-700 ring-amber-200';
+    case "FAIR":
+      return "bg-amber-50 text-amber-700 ring-amber-200";
 
-    case 'POOR':
-    case 'DAMAGED':
-      return 'bg-red-50 text-red-700 ring-red-200';
+    case "POOR":
+    case "DAMAGED":
+      return "bg-red-50 text-red-700 ring-red-200";
 
     default:
-      return 'bg-slate-100 text-slate-700 ring-slate-200';
+      return "bg-slate-100 text-slate-700 ring-slate-200";
   }
 }
 
@@ -81,34 +73,24 @@ export default function VehicleInspectionCard({
   onChanged,
   onDeleted,
 }: VehicleInspectionCardProps) {
-  const [isExpanded, setIsExpanded] =
-    useState(true);
+  const [isExpanded, setIsExpanded] = useState(true);
 
-  const [isEditing, setIsEditing] =
-    useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
-  const [isAddingDamage, setIsAddingDamage] =
-    useState(false);
+  const [isAddingDamage, setIsAddingDamage] = useState(false);
 
-  const [
-    editingDamageReport,
-    setEditingDamageReport,
-  ] = useState<VehicleDamageReport | null>(
-    null,
-  );
+  const [editingDamageReport, setEditingDamageReport] =
+    useState<VehicleDamageReport | null>(null);
 
-  const [isDeleting, setIsDeleting] =
-    useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const [errorMessage, setErrorMessage] =
-    useState('');
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const [isDownloadingPdf, setIsDownloadingPdf] =
-    useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   async function handleDownloadPdf() {
     try {
-      setErrorMessage('');
+      setErrorMessage("");
       setIsDownloadingPdf(true);
 
       await downloadVehicleInspectionPdf(
@@ -119,7 +101,7 @@ export default function VehicleInspectionCard({
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'The PDF could not be downloaded.',
+          : "The PDF could not be downloaded.",
       );
     } finally {
       setIsDownloadingPdf(false);
@@ -136,54 +118,40 @@ export default function VehicleInspectionCard({
     }
 
     setIsDeleting(true);
-    setErrorMessage('');
+    setErrorMessage("");
 
     try {
-      await deleteVehicleInspection(
-        inspection.id,
-      );
+      await deleteVehicleInspection(inspection.id);
 
       onDeleted(inspection.id);
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'The inspection could not be deleted.',
+          : "The inspection could not be deleted.",
       );
     } finally {
       setIsDeleting(false);
     }
   }
 
-  function handleDamageSaved(
-    report: VehicleDamageReport,
-  ) {
-    const exists =
-      inspection.damageReports.some(
-        (currentReport) =>
-          currentReport.id === report.id,
-      );
+  function handleDamageSaved(report: VehicleDamageReport) {
+    const exists = inspection.damageReports.some(
+      (currentReport) => currentReport.id === report.id,
+    );
 
     const damageReports = exists
-      ? inspection.damageReports.map(
-          (currentReport) =>
-            currentReport.id === report.id
-              ? report
-              : currentReport,
+      ? inspection.damageReports.map((currentReport) =>
+          currentReport.id === report.id ? report : currentReport,
         )
-      : [
-          report,
-          ...inspection.damageReports,
-        ];
+      : [report, ...inspection.damageReports];
 
     onChanged({
       ...inspection,
-      hasVisibleDamage:
-        damageReports.length > 0,
+      hasVisibleDamage: damageReports.length > 0,
       damageReports,
       _count: {
-        damageReports:
-          damageReports.length,
+        damageReports: damageReports.length,
       },
     });
 
@@ -191,22 +159,17 @@ export default function VehicleInspectionCard({
     setEditingDamageReport(null);
   }
 
-  function handleDamageDeleted(
-    reportId: string,
-  ) {
-    const damageReports =
-      inspection.damageReports.filter(
-        (report) => report.id !== reportId,
-      );
+  function handleDamageDeleted(reportId: string) {
+    const damageReports = inspection.damageReports.filter(
+      (report) => report.id !== reportId,
+    );
 
     onChanged({
       ...inspection,
-      hasVisibleDamage:
-        damageReports.length > 0,
+      hasVisibleDamage: damageReports.length > 0,
       damageReports,
       _count: {
-        damageReports:
-          damageReports.length,
+        damageReports: damageReports.length,
       },
     });
   }
@@ -221,8 +184,7 @@ export default function VehicleInspectionCard({
           onChanged({
             ...updatedInspection,
             damageReports:
-              updatedInspection.damageReports ??
-              inspection.damageReports,
+              updatedInspection.damageReports ?? inspection.damageReports,
           });
 
           setIsEditing(false);
@@ -246,9 +208,7 @@ export default function VehicleInspectionCard({
                   inspection.status,
                 )}`}
               >
-                {formatInspectionValue(
-                  inspection.status,
-                )}
+                {formatInspectionValue(inspection.status)}
               </span>
 
               {inspection.condition ? (
@@ -257,9 +217,7 @@ export default function VehicleInspectionCard({
                     inspection.condition,
                   )}`}
                 >
-                  {formatInspectionValue(
-                    inspection.condition,
-                  )}
+                  {formatInspectionValue(inspection.condition)}
                 </span>
               ) : null}
 
@@ -271,32 +229,21 @@ export default function VehicleInspectionCard({
             </div>
 
             <h3 className="mt-4 text-2xl font-bold text-slate-950">
-              {formatInspectionValue(
-                inspection.type,
-              )}{' '}
-              inspection
+              {formatInspectionValue(inspection.type)} inspection
             </h3>
 
             <p className="mt-2 text-sm text-slate-500">
-              {formatDate(
-                inspection.inspectionDate,
-              )}
+              {formatDate(inspection.inspectionDate)}
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() =>
-                setIsExpanded(
-                  (current) => !current,
-                )
-              }
+              onClick={() => setIsExpanded((current) => !current)}
               className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
             >
-              {isExpanded
-                ? 'Collapse'
-                : 'Expand'}
+              {isExpanded ? "Collapse" : "Expand"}
             </button>
 
             <button
@@ -305,9 +252,7 @@ export default function VehicleInspectionCard({
               disabled={isDownloadingPdf}
               className="rounded-xl border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isDownloadingPdf
-                ? 'Downloading...'
-                : 'Download PDF'}
+              {isDownloadingPdf ? "Downloading..." : "Download PDF"}
             </button>
 
             <button
@@ -324,9 +269,7 @@ export default function VehicleInspectionCard({
               onClick={() => void handleDelete()}
               className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
             >
-              {isDeleting
-                ? 'Deleting...'
-                : 'Delete'}
+              {isDeleting ? "Deleting..." : "Delete"}
             </button>
           </div>
         </div>
@@ -346,8 +289,7 @@ export default function VehicleInspectionCard({
                 Inspector
               </dt>
               <dd className="mt-2 font-semibold text-slate-900">
-                {inspection.inspectorName ||
-                  '—'}
+                {inspection.inspectorName || "—"}
               </dd>
             </div>
 
@@ -356,7 +298,7 @@ export default function VehicleInspectionCard({
                 Location
               </dt>
               <dd className="mt-2 font-semibold text-slate-900">
-                {inspection.location || '—'}
+                {inspection.location || "—"}
               </dd>
             </div>
 
@@ -367,7 +309,7 @@ export default function VehicleInspectionCard({
               <dd className="mt-2 font-semibold text-slate-900">
                 {inspection.odometer !== null
                   ? `${inspection.odometer.toLocaleString()} km`
-                  : '—'}
+                  : "—"}
               </dd>
             </div>
 
@@ -378,56 +320,45 @@ export default function VehicleInspectionCard({
               <dd className="mt-2 font-semibold text-slate-900">
                 {inspection.fuelLevel !== null
                   ? `${inspection.fuelLevel}%`
-                  : '—'}
+                  : "—"}
               </dd>
             </div>
           </dl>
 
           <dl className="mt-5 grid gap-4 sm:grid-cols-3">
             <div className="rounded-xl border border-slate-200 p-4">
-              <dt className="text-sm text-slate-500">
-                Keys available
-              </dt>
+              <dt className="text-sm text-slate-500">Keys available</dt>
               <dd className="mt-1 font-bold text-slate-900">
                 {inspection.hasKeys === null
-                  ? 'Unknown'
+                  ? "Unknown"
                   : inspection.hasKeys
-                    ? 'Yes'
-                    : 'No'}
+                    ? "Yes"
+                    : "No"}
               </dd>
             </div>
 
             <div className="rounded-xl border border-slate-200 p-4">
-              <dt className="text-sm text-slate-500">
-                Vehicle running
-              </dt>
+              <dt className="text-sm text-slate-500">Vehicle running</dt>
               <dd className="mt-1 font-bold text-slate-900">
                 {inspection.isRunning === null
-                  ? 'Unknown'
+                  ? "Unknown"
                   : inspection.isRunning
-                    ? 'Yes'
-                    : 'No'}
+                    ? "Yes"
+                    : "No"}
               </dd>
             </div>
 
             <div className="rounded-xl border border-slate-200 p-4">
-              <dt className="text-sm text-slate-500">
-                Damage reports
-              </dt>
+              <dt className="text-sm text-slate-500">Damage reports</dt>
               <dd className="mt-1 font-bold text-slate-900">
-                {
-                  inspection.damageReports
-                    .length
-                }
+                {inspection.damageReports.length}
               </dd>
             </div>
           </dl>
 
           {inspection.summary ? (
             <section className="mt-6 rounded-2xl border border-slate-200 p-5">
-              <h4 className="font-bold text-slate-950">
-                Inspection summary
-              </h4>
+              <h4 className="font-bold text-slate-950">Inspection summary</h4>
               <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">
                 {inspection.summary}
               </p>
@@ -436,9 +367,7 @@ export default function VehicleInspectionCard({
 
           {inspection.notes ? (
             <section className="mt-4 rounded-2xl bg-slate-950 p-5 text-white">
-              <h4 className="font-bold">
-                Internal notes
-              </h4>
+              <h4 className="font-bold">Internal notes</h4>
               <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">
                 {inspection.notes}
               </p>
@@ -453,15 +382,8 @@ export default function VehicleInspectionCard({
                 </h4>
 
                 <p className="mt-1 text-sm text-slate-500">
-                  {
-                    inspection.damageReports
-                      .length
-                  }{' '}
-                  recorded damage{' '}
-                  {inspection.damageReports
-                    .length === 1
-                    ? 'item'
-                    : 'items'}
+                  {inspection.damageReports.length} recorded damage{" "}
+                  {inspection.damageReports.length === 1 ? "item" : "items"}
                 </p>
               </div>
 
@@ -481,9 +403,7 @@ export default function VehicleInspectionCard({
               <div className="mt-6">
                 <DamageReportForm
                   inspectionId={inspection.id}
-                  onCancel={() =>
-                    setIsAddingDamage(false)
-                  }
+                  onCancel={() => setIsAddingDamage(false)}
                   onSaved={handleDamageSaved}
                 />
               </div>
@@ -494,36 +414,25 @@ export default function VehicleInspectionCard({
                 <DamageReportForm
                   inspectionId={inspection.id}
                   report={editingDamageReport}
-                  onCancel={() =>
-                    setEditingDamageReport(
-                      null,
-                    )
-                  }
+                  onCancel={() => setEditingDamageReport(null)}
                   onSaved={handleDamageSaved}
                 />
               </div>
             ) : null}
 
-            {inspection.damageReports.length >
-            0 ? (
+            {inspection.damageReports.length > 0 ? (
               <div className="mt-6 grid gap-4">
-                {inspection.damageReports.map(
-                  (report) => (
-                    <DamageReportCard
-                      key={report.id}
-                      report={report}
-                      onEdit={(selectedReport) => {
-                        setIsAddingDamage(false);
-                        setEditingDamageReport(
-                          selectedReport,
-                        );
-                      }}
-                      onDeleted={
-                        handleDamageDeleted
-                      }
-                    />
-                  ),
-                )}
+                {inspection.damageReports.map((report) => (
+                  <DamageReportCard
+                    key={report.id}
+                    report={report}
+                    onEdit={(selectedReport) => {
+                      setIsAddingDamage(false);
+                      setEditingDamageReport(selectedReport);
+                    }}
+                    onDeleted={handleDamageDeleted}
+                  />
+                ))}
               </div>
             ) : (
               <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
@@ -531,8 +440,7 @@ export default function VehicleInspectionCard({
                   No damage reports recorded
                 </p>
                 <p className="mt-2 text-sm text-slate-500">
-                  Add a report when visible
-                  damage is found.
+                  Add a report when visible damage is found.
                 </p>
               </div>
             )}
