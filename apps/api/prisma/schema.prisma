@@ -359,8 +359,9 @@ model VehicleInspection {
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 
-  vehicle       Vehicle               @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  vehicle       Vehicle                   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   damageReports VehicleDamageReport[]
+  statusHistory InspectionStatusHistory[]
 
   @@index([vehicleId])
   @@index([inspectionNo])
@@ -389,4 +390,20 @@ model VehicleDamageReport {
   @@index([area])
   @@index([severity])
   @@index([repaired])
+}
+
+model InspectionStatusHistory {
+  id           String            @id @default(uuid())
+  inspectionId String
+  fromStatus   InspectionStatus?
+  toStatus     InspectionStatus
+  note         String?
+  changedBy    String?
+  createdAt    DateTime          @default(now())
+
+  inspection VehicleInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@index([inspectionId])
+  @@index([toStatus])
+  @@index([createdAt])
 }
