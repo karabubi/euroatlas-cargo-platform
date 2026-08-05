@@ -6,6 +6,8 @@ import type {
   UpdateVehicleInspectionInput,
   VehicleDamageReport,
   VehicleInspection,
+  VehicleInspectionDashboardQuery,
+  VehicleInspectionDashboardResponse,
 } from "@/types/vehicle-inspection";
 
 export function getVehicleInspections(
@@ -16,8 +18,50 @@ export function getVehicleInspections(
   );
 }
 
-export function getAllVehicleInspections(): Promise<VehicleInspection[]> {
-  return apiFetch<VehicleInspection[]>("/vehicle-inspections");
+export function getAllVehicleInspections(
+  query: VehicleInspectionDashboardQuery = {},
+): Promise<VehicleInspectionDashboardResponse> {
+  const searchParams = new URLSearchParams();
+
+  if (query.search) {
+    searchParams.set("search", query.search);
+  }
+
+  if (query.type) {
+    searchParams.set("type", query.type);
+  }
+
+  if (query.status) {
+    searchParams.set("status", query.status);
+  }
+
+  if (query.condition) {
+    searchParams.set("condition", query.condition);
+  }
+
+  if (query.damageSeverity) {
+    searchParams.set("damageSeverity", query.damageSeverity);
+  }
+
+  if (query.hasVisibleDamage !== undefined) {
+    searchParams.set("hasVisibleDamage", String(query.hasVisibleDamage));
+  }
+
+  if (query.dateFrom) {
+    searchParams.set("dateFrom", query.dateFrom);
+  }
+
+  if (query.dateTo) {
+    searchParams.set("dateTo", query.dateTo);
+  }
+
+  searchParams.set("page", String(query.page ?? 1));
+
+  searchParams.set("pageSize", String(query.pageSize ?? 10));
+
+  return apiFetch<VehicleInspectionDashboardResponse>(
+    `/vehicle-inspections?${searchParams.toString()}`,
+  );
 }
 
 export function getVehicleInspection(
