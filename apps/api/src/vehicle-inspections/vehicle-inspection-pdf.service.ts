@@ -66,6 +66,7 @@ export class VehicleInspectionPdfService {
     this.drawInspectionSection(document, inspection);
     this.drawConditionSection(document, inspection);
     this.drawTextSections(document, inspection);
+    this.drawStatusHistory(document, inspection);
     this.drawDamageReports(document, inspection);
     this.drawFooter(document);
   }
@@ -240,6 +241,91 @@ export class VehicleInspectionPdfService {
 
       document.moveDown(0.8);
     }
+  }
+
+  private drawStatusHistory(
+    document: PDFKit.PDFDocument,
+    inspection: PdfInspection,
+  ): void {
+    this.ensureSpace(document, 120);
+    this.sectionTitle(document, 'Status history');
+
+    const history = inspection.statusHistory ?? [];
+
+    if (history.length === 0) {
+      document
+        .font('Helvetica')
+        .fontSize(10)
+        .fillColor('#475569')
+        .text('No status changes have been recorded for this inspection.');
+
+      document.moveDown(0.8);
+      return;
+    }
+
+    history.forEach((item, index) => {
+      this.ensureSpace(document, item.note ? 105 : 72);
+
+      const startY = document.y;
+
+      document.circle(56, startY + 7, 4).fill('#0ea5e9');
+
+      if (index < history.length - 1) {
+        document
+          .strokeColor('#cbd5e1')
+          .lineWidth(1)
+          .moveTo(56, startY + 13)
+          .lineTo(56, startY + (item.note ? 91 : 58))
+          .stroke();
+      }
+
+      const transition =
+        item.fromStatus === null
+          ? `Created as ${this.formatValue(item.toStatus)}`
+          : `${this.formatValue(item.fromStatus)} to ${this.formatValue(
+              item.toStatus,
+            )}`;
+
+      document
+        .font('Helvetica-Bold')
+        .fontSize(10)
+        .fillColor('#0f172a')
+        .text(transition, 70, startY, {
+          width: 465,
+        });
+
+      document
+        .font('Helvetica')
+        .fontSize(8.5)
+        .fillColor('#64748b')
+        .text(
+          `${this.formatDate(item.createdAt)}${
+            item.changedBy ? ` - ${item.changedBy}` : ''
+          }`,
+          70,
+          startY + 18,
+          {
+            width: 465,
+          },
+        );
+
+      if (item.note) {
+        document
+          .font('Helvetica')
+          .fontSize(9)
+          .fillColor('#334155')
+          .text(item.note, 70, startY + 38, {
+            width: 465,
+            lineGap: 2,
+          });
+
+        document.y = Math.max(document.y + 9, startY + 82);
+      } else {
+        document.y = startY + 52;
+      }
+    });
+
+    document.moveDown(0.6);
   }
 
   private drawDamageReports(
