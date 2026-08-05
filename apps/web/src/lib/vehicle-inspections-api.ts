@@ -121,7 +121,11 @@ export async function downloadVehicleInspectionPdf(
 ): Promise<void> {
   const token =
     typeof window !== 'undefined'
-      ? localStorage.getItem('accessToken')
+      ? localStorage.getItem('accessToken') ??
+        localStorage.getItem('token') ??
+        localStorage.getItem('authToken') ??
+        localStorage.getItem('access_token') ??
+        localStorage.getItem('euroatlas_access_token')
       : null;
 
   if (!token) {
