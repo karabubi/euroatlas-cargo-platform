@@ -30,3 +30,31 @@ export type Shipment = {
   isActive: boolean;
   customer?: ShipmentCustomer;
 };
+
+export type DispatchShipmentStatus = "LOADED" | "IN_TRANSIT";
+
+export type DispatchShipmentInput = {
+  status: DispatchShipmentStatus;
+  location: string;
+  dispatchedBy?: string;
+  departureTime?: string;
+  notes?: string;
+};
+
+export type DispatchShipmentResponse = {
+  message: string;
+  shipment: Shipment;
+  trackingEvent: {
+    id: string;
+    shipmentId: string;
+    eventType: string;
+    status: string | null;
+    title: string;
+    description: string | null;
+    location: string | null;
+    createdBy: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  dispatchedAt: string;
+};

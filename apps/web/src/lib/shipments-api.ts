@@ -25,11 +25,22 @@ function buildQueryString(filters: ShipmentFilters): string {
 export function getShipments(
   filters: ShipmentFilters = {},
 ): Promise<Shipment[]> {
-  return apiFetch<Shipment[]>(
-    `/shipments${buildQueryString(filters)}`,
-  );
+  return apiFetch<Shipment[]>(`/shipments${buildQueryString(filters)}`);
 }
 
 export function getShipment(id: string): Promise<Shipment> {
   return apiFetch<Shipment>(`/shipments/${id}`);
+}
+
+export function dispatchShipment(
+  shipmentId: string,
+  input: import("@/types/shipment").DispatchShipmentInput,
+): Promise<import("@/types/shipment").DispatchShipmentResponse> {
+  return apiFetch<import("@/types/shipment").DispatchShipmentResponse>(
+    `/shipments/${shipmentId}/dispatch`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
 }
