@@ -4,12 +4,21 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import { ShipmentStatus } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 
 @Injectable()
 export class ShipmentsService {
+  private readonly readinessProtectedStatuses = new Set<ShipmentStatus>([
+    ShipmentStatus.LOADED,
+    ShipmentStatus.IN_TRANSIT,
+    ShipmentStatus.ARRIVED,
+    ShipmentStatus.READY_FOR_DELIVERY,
+    ShipmentStatus.DELIVERED,
+  ]);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createShipmentDto: CreateShipmentDto) {
@@ -427,8 +436,37 @@ export class ShipmentsService {
     };
   }
 
+  async assertReadyForStatus(id: string, requestedStatus: ShipmentStatus) {
+    if (!this.readinessProtectedStatuses.has(requestedStatus)) {
+      return;
+    }
+
+    const readiness = await this.getReadiness(id);
+
+    if (readiness.isReady) {
+      return;
+    }
+
+    throw new ConflictException({
+      statusCode: 409,
+      code: 'SHIPMENT_NOT_READY',
+      message: `Shipment cannot move to ${requestedStatus} because it is not ready.`,
+      shipmentId: id,
+      requestedStatus,
+      readinessPercentage: readiness.readinessPercentage,
+      blockers: readiness.blockers,
+    });
+  }
+
   async update(id: string, updateShipmentDto: UpdateShipmentDto) {
     const shipment = await this.findOne(id);
+
+    if (
+      updateShipmentDto.status &&
+      updateShipmentDto.status !== shipment.status
+    ) {
+      await this.assertReadyForStatus(id, updateShipmentDto.status);
+    }
 
     if (
       updateShipmentDto.customerId &&

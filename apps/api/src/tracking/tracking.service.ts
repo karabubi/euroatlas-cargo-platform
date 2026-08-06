@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { ShipmentsService } from '../shipments/shipments.service';
 import { CreateTrackingDto } from './dto/create-tracking.dto';
 import { UpdateTrackingDto } from './dto/update-tracking.dto';
 
 @Injectable()
 export class TrackingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly shipmentsService: ShipmentsService,
+  ) {}
 
   async create(createTrackingDto: CreateTrackingDto) {
     const shipment = await this.prisma.shipment.findUnique({
@@ -21,6 +25,16 @@ export class TrackingService {
 
     if (!shipment) {
       throw new NotFoundException('Shipment not found.');
+    }
+
+    if (
+      createTrackingDto.status &&
+      createTrackingDto.status !== shipment.status
+    ) {
+      await this.shipmentsService.assertReadyForStatus(
+        shipment.id,
+        createTrackingDto.status,
+      );
     }
 
     return this.prisma.$transaction(async (transaction) => {
@@ -117,7 +131,17 @@ export class TrackingService {
   }
 
   async update(id: string, updateTrackingDto: UpdateTrackingDto) {
-    await this.findOne(id);
+    const existingTrackingEvent = await this.findOne(id);
+
+    if (
+      updateTrackingDto.status &&
+      updateTrackingDto.status !== existingTrackingEvent.shipment.status
+    ) {
+      await this.shipmentsService.assertReadyForStatus(
+        existingTrackingEvent.shipmentId,
+        updateTrackingDto.status,
+      );
+    }
 
     return this.prisma.$transaction(async (transaction) => {
       const trackingEvent = await transaction.shipmentTracking.update({
