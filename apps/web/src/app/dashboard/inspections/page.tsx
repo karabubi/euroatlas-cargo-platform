@@ -70,6 +70,19 @@ function statusClasses(status: InspectionStatus): string {
   }
 }
 
+function approvalClasses(status: VehicleInspection["approvalStatus"]): string {
+  switch (status) {
+    case "APPROVED":
+      return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+
+    case "REJECTED":
+      return "bg-red-50 text-red-700 ring-red-200";
+
+    default:
+      return "bg-amber-50 text-amber-700 ring-amber-200";
+  }
+}
+
 export default function InspectionsDashboardPage() {
   const [response, setResponse] =
     useState<VehicleInspectionDashboardResponse>(EMPTY_RESPONSE);
@@ -399,6 +412,7 @@ export default function InspectionsDashboardPage() {
                     <th className="px-6 py-4">Inspection</th>
                     <th className="px-6 py-4">Vehicle</th>
                     <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Approval</th>
                     <th className="px-6 py-4">Inspector</th>
                     <th className="px-6 py-4">Damage</th>
                     <th className="px-6 py-4">Date</th>
@@ -454,6 +468,38 @@ export default function InspectionsDashboardPage() {
                         ) : null}
                       </td>
 
+                      <td className="px-6 py-5">
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ${approvalClasses(
+                            inspection.approvalStatus,
+                          )}`}
+                        >
+                          {formatInspectionValue(inspection.approvalStatus)}
+                        </span>
+
+                        {inspection.approvalStatus === "APPROVED" ? (
+                          <div className="mt-2 text-xs text-slate-500">
+                            <p>By: {inspection.approvedBy || "—"}</p>
+                            {inspection.approvedAt ? (
+                              <p className="mt-1">
+                                {formatDate(inspection.approvedAt)}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        {inspection.approvalStatus === "REJECTED" ? (
+                          <div className="mt-2 text-xs text-slate-500">
+                            <p>By: {inspection.rejectedBy || "—"}</p>
+                            {inspection.rejectedAt ? (
+                              <p className="mt-1">
+                                {formatDate(inspection.rejectedAt)}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </td>
+
                       <td className="px-6 py-5 text-sm text-slate-700">
                         <p>{inspection.inspectorName || "—"}</p>
                         <p className="mt-1 text-slate-500">
@@ -485,6 +531,13 @@ export default function InspectionsDashboardPage() {
 
                       <td className="px-6 py-5">
                         <div className="flex min-w-36 flex-col gap-2">
+                          <Link
+                            href={`/dashboard/inspections/${inspection.id}`}
+                            className="rounded-lg bg-slate-950 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-slate-800"
+                          >
+                            View Inspection
+                          </Link>
+
                           <Link
                             href={`/dashboard/vehicles/${inspection.vehicleId}`}
                             className="rounded-lg border border-slate-300 px-3 py-2 text-center text-sm font-semibold text-slate-700 hover:bg-slate-100"
