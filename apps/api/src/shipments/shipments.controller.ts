@@ -12,6 +12,7 @@ import {
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
+import { DispatchShipmentDto } from './dto/dispatch-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 import { ShipmentsService } from './shipments.service';
 
@@ -28,6 +29,11 @@ export class ShipmentsController {
   @Get()
   findAll(@Query('search') search?: string, @Query('status') status?: string) {
     return this.shipmentsService.findAll(search, status);
+  }
+
+  @Post(':id/dispatch')
+  dispatch(@Param('id') id: string, @Body() dto: DispatchShipmentDto) {
+    return this.shipmentsService.dispatch(id, dto);
   }
 
   @Get(':id/readiness')

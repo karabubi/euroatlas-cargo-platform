@@ -7,6 +7,7 @@ import {
 import { ShipmentStatus } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
+import { DispatchShipmentDto } from './dto/dispatch-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 
 @Injectable()
@@ -455,6 +456,80 @@ export class ShipmentsService {
       requestedStatus,
       readinessPercentage: readiness.readinessPercentage,
       blockers: readiness.blockers,
+    });
+  }
+
+  async dispatch(id: string, dto: DispatchShipmentDto) {
+    const allowedStatuses: ShipmentStatus[] = [
+      ShipmentStatus.LOADED,
+      ShipmentStatus.IN_TRANSIT,
+    ];
+
+    if (!allowedStatuses.includes(dto.status)) {
+      throw new ConflictException(
+        'A shipment can only be dispatched as LOADED or IN_TRANSIT.',
+      );
+    }
+
+    const shipment = await this.findOne(id);
+
+    if (
+      shipment.status === ShipmentStatus.IN_TRANSIT ||
+      shipment.status === ShipmentStatus.ARRIVED ||
+      shipment.status === ShipmentStatus.CUSTOMS_CLEARANCE ||
+      shipment.status === ShipmentStatus.READY_FOR_DELIVERY ||
+      shipment.status === ShipmentStatus.DELIVERED
+    ) {
+      throw new ConflictException(
+        `Shipment ${shipment.shipmentNo} has already been dispatched.`,
+      );
+    }
+
+    await this.assertReadyForStatus(id, dto.status);
+
+    const departureTime = dto.departureTime
+      ? new Date(dto.departureTime)
+      : new Date();
+
+    return this.prisma.$transaction(async (transaction) => {
+      const updatedShipment = await transaction.shipment.update({
+        where: {
+          id,
+        },
+
+        data: {
+          status: dto.status,
+          actualDeparture: departureTime,
+        },
+
+        include: {
+          customer: true,
+        },
+      });
+
+      const trackingEvent = await transaction.shipmentTracking.create({
+        data: {
+          shipmentId: id,
+          eventType: 'STATUS_CHANGED',
+          status: dto.status,
+          title:
+            dto.status === ShipmentStatus.IN_TRANSIT
+              ? 'Shipment dispatched and in transit'
+              : 'Shipment loaded for dispatch',
+          description:
+            dto.notes?.trim() ||
+            `Shipment ${shipment.shipmentNo} was dispatched.`,
+          location: dto.location.trim(),
+          createdBy: dto.dispatchedBy?.trim() || null,
+        },
+      });
+
+      return {
+        message: 'Shipment dispatched successfully.',
+        shipment: updatedShipment,
+        trackingEvent,
+        dispatchedAt: departureTime,
+      };
     });
   }
 
