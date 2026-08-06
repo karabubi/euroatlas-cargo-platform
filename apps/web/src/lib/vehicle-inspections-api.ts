@@ -39,6 +39,10 @@ export function getAllVehicleInspections(
     searchParams.set("status", query.status);
   }
 
+  if (query.approvalStatus) {
+    searchParams.set("approvalStatus", query.approvalStatus);
+  }
+
   if (query.condition) {
     searchParams.set("condition", query.condition);
   }

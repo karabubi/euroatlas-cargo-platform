@@ -12,6 +12,15 @@ export type InspectionStatus =
 
 export type InspectionApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 
+export const inspectionApprovalStatusOptions: {
+  value: InspectionApprovalStatus;
+  label: string;
+}[] = [
+  { value: "PENDING", label: "Pending" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "REJECTED", label: "Rejected" },
+];
+
 export type InspectionApprovalHistory = {
   id: string;
   inspectionId: string;
@@ -232,6 +241,7 @@ export type VehicleInspectionDashboardQuery = {
   search?: string;
   type?: InspectionType;
   status?: InspectionStatus;
+  approvalStatus?: InspectionApprovalStatus;
   condition?: InspectionCondition;
   damageSeverity?: DamageSeverity;
   hasVisibleDamage?: boolean;

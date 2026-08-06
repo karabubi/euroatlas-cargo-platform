@@ -10,6 +10,7 @@ import {
 
 import type {
   DamageSeverity,
+  InspectionApprovalStatus,
   InspectionCondition,
   InspectionStatus,
   InspectionType,
@@ -20,6 +21,7 @@ import type {
 import {
   damageSeverityOptions,
   formatInspectionValue,
+  inspectionApprovalStatusOptions,
   inspectionConditionOptions,
   inspectionStatusOptions,
   inspectionTypeOptions,
@@ -95,6 +97,10 @@ export default function InspectionsDashboardPage() {
 
   const [status, setStatus] = useState<InspectionStatus | "">("");
 
+  const [approvalStatus, setApprovalStatus] = useState<
+    InspectionApprovalStatus | ""
+  >("");
+
   const [condition, setCondition] = useState<InspectionCondition | "">("");
 
   const [damageSeverity, setDamageSeverity] = useState<DamageSeverity | "">("");
@@ -130,6 +136,7 @@ export default function InspectionsDashboardPage() {
           search: search || undefined,
           type: type || undefined,
           status: status || undefined,
+          approvalStatus: approvalStatus || undefined,
           condition: condition || undefined,
           damageSeverity: damageSeverity || undefined,
           hasVisibleDamage:
@@ -161,6 +168,7 @@ export default function InspectionsDashboardPage() {
       page,
       pageSize,
       search,
+      approvalStatus,
       status,
       type,
     ],
@@ -183,6 +191,7 @@ export default function InspectionsDashboardPage() {
     setSearch("");
     setType("");
     setStatus("");
+    setApprovalStatus("");
     setCondition("");
     setDamageSeverity("");
     setDamageFilter("ALL");
@@ -303,6 +312,16 @@ export default function InspectionsDashboardPage() {
                 }}
                 label="Status"
                 options={inspectionStatusOptions}
+              />
+
+              <FilterSelect
+                value={approvalStatus}
+                onChange={(value) => {
+                  setPage(1);
+                  setApprovalStatus(value as InspectionApprovalStatus | "");
+                }}
+                label="Approval status"
+                options={inspectionApprovalStatusOptions}
               />
 
               <FilterSelect
