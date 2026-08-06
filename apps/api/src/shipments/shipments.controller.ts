@@ -30,6 +30,11 @@ export class ShipmentsController {
     return this.shipmentsService.findAll(search, status);
   }
 
+  @Get(':id/readiness')
+  getReadiness(@Param('id') id: string) {
+    return this.shipmentsService.getReadiness(id);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.shipmentsService.findOne(id);
