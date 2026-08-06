@@ -1,17 +1,33 @@
-import { getAccessToken } from './auth-storage';
+import { getAccessToken } from "./auth-storage";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+
+export type ApiErrorPayload = {
+  statusCode?: number;
+  message?: string | string[];
+  error?: string;
+  code?: string;
+  readinessPercentage?: number;
+  blockers?: Array<{
+    key: string;
+    label: string;
+    message: string;
+  }>;
+};
 
 export class ApiError extends Error {
-  status: number;
-  data: unknown;
+  readonly status: number;
+  readonly data: ApiErrorPayload;
 
-  constructor(message: string, status: number, data: unknown = null) {
+  constructor(message: string, status: number, data: ApiErrorPayload = {}) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
     this.status = status;
     this.data = data;
+  }
+
+  get payload(): ApiErrorPayload {
+    return this.data;
   }
 }
 
@@ -37,26 +53,31 @@ async function parseResponse(response: Response): Promise<unknown> {
   }
 }
 
-function getErrorMessage(
-  responseBody: unknown,
-  status: number,
-): string {
-  if (
-    typeof responseBody === 'object' &&
-    responseBody !== null &&
-    'message' in responseBody
-  ) {
-    const message = responseBody.message;
-
-    if (Array.isArray(message)) {
-      return message.map(String).join(', ');
-    }
-
-    return String(message);
+function normalizeErrorPayload(responseBody: unknown): ApiErrorPayload {
+  if (typeof responseBody === "object" && responseBody !== null) {
+    return responseBody as ApiErrorPayload;
   }
 
-  if (typeof responseBody === 'string' && responseBody.trim()) {
-    return responseBody;
+  if (typeof responseBody === "string" && responseBody.trim()) {
+    return {
+      message: responseBody,
+    };
+  }
+
+  return {};
+}
+
+function getErrorMessage(payload: ApiErrorPayload, status: number): string {
+  if (Array.isArray(payload.message)) {
+    return payload.message.map(String).join(", ");
+  }
+
+  if (typeof payload.message === "string" && payload.message.trim()) {
+    return payload.message;
+  }
+
+  if (typeof payload.error === "string" && payload.error.trim()) {
+    return payload.error;
   }
 
   return `Request failed with status ${status}`;
@@ -66,17 +87,13 @@ export async function apiRequest<T>(
   endpoint: string,
   options: ApiRequestOptions = {},
 ): Promise<T> {
-  const {
-    useAuthentication = false,
-    ...requestOptions
-  } = options;
+  const { useAuthentication = false, ...requestOptions } = options;
 
-  const token =
-    typeof window !== 'undefined' ? getAccessToken() : null;
+  const token = typeof window !== "undefined" ? getAccessToken() : null;
 
   if (useAuthentication && !token) {
     throw new ApiError(
-      'No authentication token was found. Please log in again.',
+      "No authentication token was found. Please log in again.",
       401,
     );
   }
@@ -86,13 +103,13 @@ export async function apiRequest<T>(
   if (
     requestOptions.body !== undefined &&
     !(requestOptions.body instanceof FormData) &&
-    !headers.has('Content-Type')
+    !headers.has("Content-Type")
   ) {
-    headers.set('Content-Type', 'application/json');
+    headers.set("Content-Type", "application/json");
   }
 
-  if (token && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${token}`);
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   const response = await fetch(`${API_URL}${endpoint}`, {
@@ -103,16 +120,14 @@ export async function apiRequest<T>(
   const responseBody = await parseResponse(response);
 
   if (!response.ok) {
+    const payload = normalizeErrorPayload(responseBody);
+
     const message =
       response.status === 401 && useAuthentication
-        ? 'Your session has expired. Please log in again.'
-        : getErrorMessage(responseBody, response.status);
+        ? "Your session has expired. Please log in again."
+        : getErrorMessage(payload, response.status);
 
-    throw new ApiError(
-      message,
-      response.status,
-      responseBody,
-    );
+    throw new ApiError(message, response.status, payload);
   }
 
   return responseBody as T;
