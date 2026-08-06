@@ -1,14 +1,12 @@
+"use client";
 
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
-'use client';
-
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
-
-import ShipmentDocumentsPanel from '@/components/documents/ShipmentDocumentsPanel';
-import ShipmentTrackingPanel from '@/components/tracking/ShipmentTrackingPanel';
-import { apiFetch } from '@/lib/api';
+import ShipmentDocumentsPanel from "@/components/documents/ShipmentDocumentsPanel";
+import ShipmentTrackingPanel from "@/components/tracking/ShipmentTrackingPanel";
+import { apiFetch } from "@/lib/api";
 
 type Customer = {
   id: string;
@@ -56,32 +54,29 @@ type Shipment = {
 };
 
 function displayValue(value: string | null | undefined) {
-  return value?.trim() || '—';
+  return value?.trim() || "—";
 }
 
 function formatDate(value: string | null | undefined) {
   if (!value) {
-    return '—';
+    return "—";
   }
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return '—';
+    return "—";
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
   }).format(date);
 }
 
 function customerName(customer: Customer) {
-  return (
-    customer.companyName ||
-    `${customer.firstName} ${customer.lastName}`
-  );
+  return customer.companyName || `${customer.firstName} ${customer.lastName}`;
 }
 
 export default function ShipmentDetailsPage() {
@@ -90,16 +85,14 @@ export default function ShipmentDetailsPage() {
 
   const [shipment, setShipment] = useState<Shipment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let isCancelled = false;
 
     async function loadShipment() {
       try {
-        const data = await apiFetch<Shipment>(
-          `/shipments/${shipmentId}`,
-        );
+        const data = await apiFetch<Shipment>(`/shipments/${shipmentId}`);
 
         if (!isCancelled) {
           setShipment(data);
@@ -109,7 +102,7 @@ export default function ShipmentDetailsPage() {
           setError(
             requestError instanceof Error
               ? requestError.message
-              : 'The shipment could not be loaded.',
+              : "The shipment could not be loaded.",
           );
         }
       } finally {
@@ -140,7 +133,7 @@ export default function ShipmentDetailsPage() {
     return (
       <section className="rounded-2xl bg-white p-8 shadow-sm">
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
-          {error || 'Shipment not found.'}
+          {error || "Shipment not found."}
         </div>
 
         <Link
@@ -179,20 +172,11 @@ export default function ShipmentDetailsPage() {
       </header>
 
       <section className="grid gap-6 md:grid-cols-3">
-        <SummaryCard
-          label="Status"
-          value={shipment.status}
-        />
+        <SummaryCard label="Status" value={shipment.status} />
 
-        <SummaryCard
-          label="Customer"
-          value={customerName(shipment.customer)}
-        />
+        <SummaryCard label="Customer" value={customerName(shipment.customer)} />
 
-        <SummaryCard
-          label="Active"
-          value={shipment.isActive ? 'Yes' : 'No'}
-        />
+        <SummaryCard label="Active" value={shipment.isActive ? "Yes" : "No"} />
       </section>
 
       <ShipmentTrackingPanel shipmentId={shipment.id} />
@@ -205,10 +189,7 @@ export default function ShipmentDetailsPage() {
           value={shipment.customer.customerNo}
         />
 
-        <DetailItem
-          label="Customer"
-          value={customerName(shipment.customer)}
-        />
+        <DetailItem label="Customer" value={customerName(shipment.customer)} />
 
         <DetailItem
           label="Email"
@@ -222,10 +203,7 @@ export default function ShipmentDetailsPage() {
       </DetailsSection>
 
       <DetailsSection title="Route">
-        <DetailItem
-          label="Origin country"
-          value={shipment.originCountry}
-        />
+        <DetailItem label="Origin country" value={shipment.originCountry} />
 
         <DetailItem
           label="Origin city"
@@ -313,28 +291,19 @@ export default function ShipmentDetailsPage() {
             value={displayValue(shipment.description)}
           />
 
-          <TextBlock
-            label="Notes"
-            value={displayValue(shipment.notes)}
-          />
+          <TextBlock label="Notes" value={displayValue(shipment.notes)} />
         </div>
       </section>
 
       <DetailsSection title="System information">
-        <DetailItem
-          label="Created"
-          value={formatDate(shipment.createdAt)}
-        />
+        <DetailItem label="Created" value={formatDate(shipment.createdAt)} />
 
         <DetailItem
           label="Last updated"
           value={formatDate(shipment.updatedAt)}
         />
 
-        <DetailItem
-          label="Shipment ID"
-          value={shipment.id}
-        />
+        <DetailItem label="Shipment ID" value={shipment.id} />
       </DetailsSection>
     </div>
   );
@@ -345,19 +314,14 @@ type SummaryCardProps = {
   value: string;
 };
 
-function SummaryCard({
-  label,
-  value,
-}: SummaryCardProps) {
+function SummaryCard({ label, value }: SummaryCardProps) {
   return (
     <article className="rounded-2xl bg-white p-6 shadow-sm">
       <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">
         {label}
       </p>
 
-      <p className="mt-3 text-xl font-bold text-slate-950">
-        {value}
-      </p>
+      <p className="mt-3 text-xl font-bold text-slate-950">{value}</p>
     </article>
   );
 }
@@ -367,15 +331,10 @@ type DetailsSectionProps = {
   children: React.ReactNode;
 };
 
-function DetailsSection({
-  title,
-  children,
-}: DetailsSectionProps) {
+function DetailsSection({ title, children }: DetailsSectionProps) {
   return (
     <section className="rounded-2xl bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-bold text-slate-950">
-        {title}
-      </h2>
+      <h2 className="text-xl font-bold text-slate-950">{title}</h2>
 
       <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {children}
@@ -389,19 +348,12 @@ type DetailItemProps = {
   value: string;
 };
 
-function DetailItem({
-  label,
-  value,
-}: DetailItemProps) {
+function DetailItem({ label, value }: DetailItemProps) {
   return (
     <div>
-      <p className="text-sm font-semibold text-slate-500">
-        {label}
-      </p>
+      <p className="text-sm font-semibold text-slate-500">{label}</p>
 
-      <p className="mt-1 break-words text-slate-950">
-        {value}
-      </p>
+      <p className="mt-1 break-words text-slate-950">{value}</p>
     </div>
   );
 }
@@ -411,19 +363,12 @@ type TextBlockProps = {
   value: string;
 };
 
-function TextBlock({
-  label,
-  value,
-}: TextBlockProps) {
+function TextBlock({ label, value }: TextBlockProps) {
   return (
     <div>
-      <p className="text-sm font-semibold text-slate-500">
-        {label}
-      </p>
+      <p className="text-sm font-semibold text-slate-500">{label}</p>
 
-      <p className="mt-2 whitespace-pre-wrap text-slate-950">
-        {value}
-      </p>
+      <p className="mt-2 whitespace-pre-wrap text-slate-950">{value}</p>
     </div>
   );
 }
