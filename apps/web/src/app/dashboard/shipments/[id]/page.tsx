@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import ShipmentDocumentsPanel from "@/components/documents/ShipmentDocumentsPanel";
 import ShipmentTrackingPanel from "@/components/tracking/ShipmentTrackingPanel";
+import ShipmentReadinessPanel from "@/components/shipments/ShipmentReadinessPanel";
 import { apiFetch } from "@/lib/api";
 
 type Customer = {
@@ -180,6 +181,8 @@ export default function ShipmentDetailsPage() {
       </section>
 
       <ShipmentTrackingPanel shipmentId={shipment.id} />
+
+      <ShipmentReadinessPanel shipmentId={shipment.id} />
 
       <ShipmentDocumentsPanel shipmentId={shipment.id} />
 

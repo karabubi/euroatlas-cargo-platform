@@ -70,6 +70,8 @@ export default function ShipmentReadinessPanel({
   );
 
   useEffect(() => {
+    // Initial synchronization with the shipment readiness API.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadReadiness();
   }, [loadReadiness]);
 
