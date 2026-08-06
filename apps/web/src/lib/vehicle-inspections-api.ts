@@ -1,6 +1,8 @@
 import { apiFetch } from "@/lib/api";
 import type {
   ChangeInspectionStatusInput,
+  InspectionApprovalActionInput,
+  InspectionApprovalHistory,
   CreateDamageReportInput,
   CreateVehicleInspectionInput,
   UpdateDamageReportInput,
@@ -86,6 +88,53 @@ export function changeInspectionStatus(
 ): Promise<VehicleInspection> {
   return apiFetch<VehicleInspection>(
     `/vehicle-inspections/${inspectionId}/status`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function getInspectionApprovalHistory(
+  inspectionId: string,
+): Promise<InspectionApprovalHistory[]> {
+  return apiFetch<InspectionApprovalHistory[]>(
+    `/vehicle-inspections/${inspectionId}/approval-history`,
+  );
+}
+
+export function approveInspection(
+  inspectionId: string,
+  input: InspectionApprovalActionInput,
+): Promise<VehicleInspection> {
+  return apiFetch<VehicleInspection>(
+    `/vehicle-inspections/${inspectionId}/approve`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function rejectInspection(
+  inspectionId: string,
+  input: InspectionApprovalActionInput,
+): Promise<VehicleInspection> {
+  return apiFetch<VehicleInspection>(
+    `/vehicle-inspections/${inspectionId}/reject`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function revokeInspectionApproval(
+  inspectionId: string,
+  input: InspectionApprovalActionInput,
+): Promise<VehicleInspection> {
+  return apiFetch<VehicleInspection>(
+    `/vehicle-inspections/${inspectionId}/approval/revoke`,
     {
       method: "PATCH",
       body: JSON.stringify(input),

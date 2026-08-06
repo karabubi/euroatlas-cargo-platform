@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import InspectionApprovalWorkflow from "@/components/vehicle-inspections/InspectionApprovalWorkflow";
 import InspectionStatusWorkflow from "@/components/vehicle-inspections/InspectionStatusWorkflow";
 import VehicleInspectionCard from "@/components/vehicle-inspections/VehicleInspectionCard";
 import { getVehicleInspection } from "@/lib/vehicle-inspections-api";
@@ -121,6 +122,11 @@ export default function InspectionDetailsPage() {
       {!isLoading && inspection ? (
         <>
           <InspectionStatusWorkflow
+            inspection={inspection}
+            onChanged={setInspection}
+          />
+
+          <InspectionApprovalWorkflow
             inspection={inspection}
             onChanged={setInspection}
           />

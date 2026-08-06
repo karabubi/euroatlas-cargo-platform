@@ -10,6 +10,23 @@ export type InspectionType =
 export type InspectionStatus =
   "DRAFT" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 
+export type InspectionApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export type InspectionApprovalHistory = {
+  id: string;
+  inspectionId: string;
+  fromStatus: InspectionApprovalStatus | null;
+  toStatus: InspectionApprovalStatus;
+  note: string | null;
+  changedBy: string;
+  changedByName: string | null;
+  createdAt: string;
+};
+
+export type InspectionApprovalActionInput = {
+  note?: string;
+};
+
 export type InspectionCondition =
   "EXCELLENT" | "GOOD" | "FAIR" | "POOR" | "DAMAGED";
 
@@ -81,6 +98,12 @@ export type VehicleInspection = {
   vehicleId: string;
   type: InspectionType;
   status: InspectionStatus;
+  approvalStatus: InspectionApprovalStatus;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  rejectedBy: string | null;
+  rejectedAt: string | null;
+  approvalNote: string | null;
   condition: InspectionCondition | null;
   inspectionDate: string;
   location: string | null;
@@ -97,6 +120,7 @@ export type VehicleInspection = {
   vehicle: InspectionVehicle;
   damageReports: VehicleDamageReport[];
   statusHistory: InspectionStatusHistory[];
+  approvalHistory: InspectionApprovalHistory[];
   _count?: {
     damageReports: number;
   };
