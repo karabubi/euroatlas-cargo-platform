@@ -67,6 +67,7 @@ export class VehicleInspectionPdfService {
     this.drawConditionSection(document, inspection);
     this.drawTextSections(document, inspection);
     this.drawStatusHistory(document, inspection);
+    this.drawApprovalSection(document, inspection);
     this.drawDamageReports(document, inspection);
     this.drawFooter(document);
   }
@@ -302,6 +303,153 @@ export class VehicleInspectionPdfService {
           `${this.formatDate(item.createdAt)}${
             item.changedBy ? ` - ${item.changedBy}` : ''
           }`,
+          70,
+          startY + 18,
+          {
+            width: 465,
+          },
+        );
+
+      if (item.note) {
+        document
+          .font('Helvetica')
+          .fontSize(9)
+          .fillColor('#334155')
+          .text(item.note, 70, startY + 38, {
+            width: 465,
+            lineGap: 2,
+          });
+
+        document.y = Math.max(document.y + 9, startY + 82);
+      } else {
+        document.y = startY + 52;
+      }
+    });
+
+    document.moveDown(0.6);
+  }
+
+  private drawApprovalSection(
+    document: PDFKit.PDFDocument,
+    inspection: PdfInspection,
+  ): void {
+    this.ensureSpace(document, 150);
+    this.sectionTitle(document, 'Inspection approval');
+
+    const approvalStatus = this.formatValue(inspection.approvalStatus);
+
+    const reviewedBy =
+      inspection.approvalStatus === 'APPROVED'
+        ? inspection.approvedBy
+        : inspection.approvalStatus === 'REJECTED'
+          ? inspection.rejectedBy
+          : null;
+
+    const reviewedAt =
+      inspection.approvalStatus === 'APPROVED'
+        ? inspection.approvedAt
+        : inspection.approvalStatus === 'REJECTED'
+          ? inspection.rejectedAt
+          : null;
+
+    this.drawTwoColumnRows(document, [
+      [
+        'Approval status',
+        approvalStatus,
+        'Reviewed by',
+        reviewedBy || 'Not reviewed',
+      ],
+      [
+        'Review date',
+        reviewedAt ? this.formatDate(reviewedAt) : 'Not available',
+        'History records',
+        String(inspection.approvalHistory?.length ?? 0),
+      ],
+    ]);
+
+    if (inspection.approvalNote) {
+      this.ensureSpace(document, 80);
+
+      document
+        .font('Helvetica-Bold')
+        .fontSize(9)
+        .fillColor('#475569')
+        .text('Latest approval note');
+
+      document
+        .font('Helvetica')
+        .fontSize(9)
+        .fillColor('#334155')
+        .text(inspection.approvalNote, {
+          lineGap: 2,
+        });
+
+      document.moveDown(0.7);
+    }
+
+    const history = inspection.approvalHistory ?? [];
+
+    this.ensureSpace(document, 95);
+
+    document
+      .font('Helvetica-Bold')
+      .fontSize(10.5)
+      .fillColor('#0f172a')
+      .text('Approval history');
+
+    document.moveDown(0.5);
+
+    if (history.length === 0) {
+      document
+        .font('Helvetica')
+        .fontSize(10)
+        .fillColor('#475569')
+        .text('No approval actions have been recorded for this inspection.');
+
+      document.moveDown(0.8);
+      return;
+    }
+
+    history.forEach((item, index) => {
+      this.ensureSpace(document, item.note ? 105 : 72);
+
+      const startY = document.y;
+
+      document.circle(56, startY + 7, 4).fill('#8b5cf6');
+
+      if (index < history.length - 1) {
+        document
+          .strokeColor('#ddd6fe')
+          .lineWidth(1)
+          .moveTo(56, startY + 13)
+          .lineTo(56, startY + (item.note ? 91 : 58))
+          .stroke();
+      }
+
+      const transition =
+        item.fromStatus === null
+          ? `Created as ${this.formatValue(item.toStatus)}`
+          : `${this.formatValue(
+              item.fromStatus,
+            )} to ${this.formatValue(item.toStatus)}`;
+
+      document
+        .font('Helvetica-Bold')
+        .fontSize(10)
+        .fillColor('#0f172a')
+        .text(transition, 70, startY, {
+          width: 465,
+        });
+
+      const changedBy =
+        item.changedByName?.trim() || item.changedBy || 'Unknown user';
+
+      document
+        .font('Helvetica')
+        .fontSize(8.5)
+        .fillColor('#64748b')
+        .text(
+          `${this.formatDate(item.createdAt)} - ${changedBy}`,
           70,
           startY + 18,
           {
