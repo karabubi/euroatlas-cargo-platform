@@ -1,6 +1,6 @@
 import {
   IsDateString,
-  IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   MaxLength,
@@ -9,7 +9,7 @@ import {
 import { ShipmentStatus } from '../../../generated/prisma/enums';
 
 export class DispatchShipmentDto {
-  @IsEnum(ShipmentStatus)
+  @IsIn([ShipmentStatus.LOADED, ShipmentStatus.IN_TRANSIT])
   status: ShipmentStatus;
 
   @IsString()
