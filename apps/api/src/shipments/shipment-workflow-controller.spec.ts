@@ -3,6 +3,7 @@ import { ShipmentsService } from './shipments.service';
 
 describe('Shipment workflow controller routing', () => {
   const dispatch = jest.fn();
+  const markArrived = jest.fn();
   const arrival = jest.fn();
   const startCustomsClearance = jest.fn();
   const markReadyForDelivery = jest.fn();
@@ -10,6 +11,7 @@ describe('Shipment workflow controller routing', () => {
 
   const serviceMock = {
     dispatch,
+    markArrived,
     arrival,
     startCustomsClearance,
     markReadyForDelivery,
@@ -114,6 +116,28 @@ describe('Shipment workflow controller routing', () => {
     expect(markDelivered).toHaveBeenCalledTimes(1);
 
     expect(markDelivered).toHaveBeenCalledWith('shipment-004', dto);
+
+    expect(result).toBe(expected);
+  });
+
+  it('forwards arrival requests to ShipmentsService.markArrived', async () => {
+    const dto = {
+      location: 'Tripoli Port, Libya',
+      receivedBy: 'Destination Operations',
+      notes: 'Shipment received at destination port.',
+    };
+
+    const expected = {
+      message: 'Shipment arrival recorded successfully.',
+    };
+
+    markArrived.mockResolvedValue(expected);
+
+    const result = await controller.markArrived('shipment-arrival-001', dto);
+
+    expect(markArrived).toHaveBeenCalledTimes(1);
+
+    expect(markArrived).toHaveBeenCalledWith('shipment-arrival-001', dto);
 
     expect(result).toBe(expected);
   });
