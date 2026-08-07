@@ -58,3 +58,27 @@ export type DispatchShipmentResponse = {
   };
   dispatchedAt: string;
 };
+
+export type ArrivalShipmentInput = {
+  location: string;
+  receivedBy?: string;
+  arrivalTime?: string;
+  notes?: string;
+};
+
+export type ArrivalShipmentResponse = {
+  message: string;
+  shipment: Shipment;
+  trackingEvent: {
+    id: string;
+    shipmentId: string;
+    eventType: string;
+    status: string | null;
+    title: string;
+    description: string | null;
+    location: string | null;
+    createdBy: string | null;
+    createdAt: string;
+  };
+  arrivedAt: string;
+};

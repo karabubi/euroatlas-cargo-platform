@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getShipmentReadiness } from "@/lib/shipment-readiness-api";
 import type { ShipmentReadinessResponse } from "@/types/shipment-readiness";
 import ShipmentDispatchPanel from "./ShipmentDispatchPanel";
+import ShipmentArrivalPanel from "./ShipmentArrivalPanel";
 
 type ShipmentReadinessPanelProps = {
   shipmentId: string;
@@ -415,6 +416,15 @@ export default function ShipmentReadinessPanel({
         readinessPercentage={readiness.readinessPercentage}
         blockers={readiness.blockers}
         onDispatched={() => void loadReadiness(true)}
+      />
+      <ShipmentArrivalPanel
+        shipmentId={readiness.shipment.id}
+        shipmentNo={readiness.shipment.shipmentNo}
+        currentStatus={readiness.shipment.status}
+        isReady={readiness.isReady}
+        readinessPercentage={readiness.readinessPercentage}
+        blockers={readiness.blockers}
+        onArrived={() => void loadReadiness(true)}
       />
     </div>
   );

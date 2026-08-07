@@ -44,3 +44,16 @@ export function dispatchShipment(
     },
   );
 }
+
+export function markShipmentArrived(
+  shipmentId: string,
+  input: import("@/types/shipment").ArrivalShipmentInput,
+): Promise<import("@/types/shipment").ArrivalShipmentResponse> {
+  return apiFetch<import("@/types/shipment").ArrivalShipmentResponse>(
+    `/shipments/${shipmentId}/arrival`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}
