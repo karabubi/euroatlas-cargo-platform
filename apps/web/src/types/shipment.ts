@@ -107,3 +107,28 @@ export type CustomsClearanceShipmentResponse = {
   customsReference: string | null;
   customsStartedAt: string;
 };
+
+export type ReadyForDeliveryShipmentInput = {
+  location: string;
+  releasedBy?: string;
+  releaseReference?: string;
+  notes?: string;
+};
+
+export type ReadyForDeliveryShipmentResponse = {
+  message: string;
+  shipment: Shipment;
+  trackingEvent: {
+    id: string;
+    shipmentId: string;
+    eventType: string;
+    status: string | null;
+    title: string;
+    description: string | null;
+    location: string | null;
+    createdBy: string | null;
+    createdAt: string;
+  };
+  releaseReference: string | null;
+  readyForDeliveryAt: string;
+};

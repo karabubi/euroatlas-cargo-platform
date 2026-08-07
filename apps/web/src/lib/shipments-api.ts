@@ -70,3 +70,16 @@ export function startShipmentCustomsClearance(
     },
   );
 }
+
+export function markShipmentReadyForDelivery(
+  shipmentId: string,
+  input: import("@/types/shipment").ReadyForDeliveryShipmentInput,
+): Promise<import("@/types/shipment").ReadyForDeliveryShipmentResponse> {
+  return apiFetch<import("@/types/shipment").ReadyForDeliveryShipmentResponse>(
+    `/shipments/${shipmentId}/ready-for-delivery`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}
