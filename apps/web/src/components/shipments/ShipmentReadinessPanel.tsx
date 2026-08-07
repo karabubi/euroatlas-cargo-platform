@@ -9,6 +9,7 @@ import ShipmentDispatchPanel from "./ShipmentDispatchPanel";
 import ShipmentArrivalPanel from "./ShipmentArrivalPanel";
 import ShipmentCustomsClearancePanel from "./ShipmentCustomsClearancePanel";
 import ShipmentReadyForDeliveryPanel from "./ShipmentReadyForDeliveryPanel";
+import ShipmentDeliveryPanel from "./ShipmentDeliveryPanel";
 
 type ShipmentReadinessPanelProps = {
   shipmentId: string;
@@ -443,6 +444,14 @@ export default function ShipmentReadinessPanel({
         readinessPercentage={readiness.readinessPercentage}
         blockers={readiness.blockers}
         onReadyForDelivery={() => void loadReadiness(true)}
+      />
+
+      <ShipmentDeliveryPanel
+        shipment={readiness.shipment}
+        isReady={readiness.isReady}
+        readinessPercentage={readiness.readinessPercentage}
+        blockers={readiness.blockers}
+        onDelivered={() => void loadReadiness(true)}
       />
     </div>
   );

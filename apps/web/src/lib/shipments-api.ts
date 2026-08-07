@@ -83,3 +83,16 @@ export function markShipmentReadyForDelivery(
     },
   );
 }
+
+export function deliverShipment(
+  shipmentId: string,
+  input: import("@/types/shipment").DeliverShipmentInput,
+): Promise<import("@/types/shipment").DeliverShipmentResponse> {
+  return apiFetch<import("@/types/shipment").DeliverShipmentResponse>(
+    `/shipments/${shipmentId}/delivery`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}

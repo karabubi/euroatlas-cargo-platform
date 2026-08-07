@@ -132,3 +132,29 @@ export type ReadyForDeliveryShipmentResponse = {
   releaseReference: string | null;
   readyForDeliveryAt: string;
 };
+
+export type DeliverShipmentInput = {
+  location: string;
+  deliveredTo?: string;
+  proofReference?: string;
+  notes?: string;
+};
+
+export type DeliverShipmentResponse = {
+  message: string;
+  shipment: Shipment;
+  trackingEvent: {
+    id: string;
+    shipmentId: string;
+    eventType: string;
+    status: string | null;
+    title: string;
+    description: string | null;
+    location: string | null;
+    createdBy: string | null;
+    createdAt: string;
+  };
+  deliveredTo: string | null;
+  proofReference: string | null;
+  deliveredAt: string;
+};
