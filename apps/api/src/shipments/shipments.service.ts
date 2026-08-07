@@ -8,6 +8,7 @@ import { ShipmentStatus } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { ArrivalShipmentDto } from './dto/arrival-shipment.dto';
+import { CustomsClearanceShipmentDto } from './dto/customs-clearance-shipment.dto';
 import { DispatchShipmentDto } from './dto/dispatch-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 
@@ -597,6 +598,74 @@ export class ShipmentsService {
         shipment: updatedShipment,
         trackingEvent,
         arrivedAt: arrivalTime,
+      };
+    });
+  }
+
+  async startCustomsClearance(id: string, dto: CustomsClearanceShipmentDto) {
+    const shipment = await this.findOne(id);
+
+    const customsOrLaterStatuses: ShipmentStatus[] = [
+      ShipmentStatus.CUSTOMS_CLEARANCE,
+      ShipmentStatus.READY_FOR_DELIVERY,
+      ShipmentStatus.DELIVERED,
+    ];
+
+    if (customsOrLaterStatuses.includes(shipment.status)) {
+      throw new ConflictException(
+        `Shipment ${shipment.shipmentNo} has already entered customs clearance.`,
+      );
+    }
+
+    if (shipment.status !== ShipmentStatus.ARRIVED) {
+      throw new ConflictException(
+        `Shipment ${shipment.shipmentNo} must be ARRIVED before customs clearance can start.`,
+      );
+    }
+
+    await this.assertReadyForStatus(id, ShipmentStatus.CUSTOMS_CLEARANCE);
+
+    const customsStartedAt = new Date();
+
+    return this.prisma.$transaction(async (transaction) => {
+      const updatedShipment = await transaction.shipment.update({
+        where: {
+          id,
+        },
+
+        data: {
+          status: ShipmentStatus.CUSTOMS_CLEARANCE,
+        },
+
+        include: {
+          customer: true,
+        },
+      });
+
+      const reference = dto.customsReference?.trim();
+
+      const defaultDescription = reference
+        ? `Customs clearance started for shipment ${shipment.shipmentNo}. Reference: ${reference}.`
+        : `Customs clearance started for shipment ${shipment.shipmentNo}.`;
+
+      const trackingEvent = await transaction.shipmentTracking.create({
+        data: {
+          shipmentId: id,
+          eventType: 'STATUS_CHANGED',
+          status: ShipmentStatus.CUSTOMS_CLEARANCE,
+          title: 'Customs clearance started',
+          description: dto.notes?.trim() || defaultDescription,
+          location: dto.location.trim(),
+          createdBy: dto.handledBy?.trim() || null,
+        },
+      });
+
+      return {
+        message: 'Customs clearance started successfully.',
+        shipment: updatedShipment,
+        trackingEvent,
+        customsReference: reference || null,
+        customsStartedAt,
       };
     });
   }

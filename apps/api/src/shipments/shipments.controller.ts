@@ -13,6 +13,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { ArrivalShipmentDto } from './dto/arrival-shipment.dto';
+import { CustomsClearanceShipmentDto } from './dto/customs-clearance-shipment.dto';
 import { DispatchShipmentDto } from './dto/dispatch-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 import { ShipmentsService } from './shipments.service';
@@ -30,6 +31,14 @@ export class ShipmentsController {
   @Get()
   findAll(@Query('search') search?: string, @Query('status') status?: string) {
     return this.shipmentsService.findAll(search, status);
+  }
+
+  @Post(':id/customs-clearance')
+  startCustomsClearance(
+    @Param('id') id: string,
+    @Body() dto: CustomsClearanceShipmentDto,
+  ) {
+    return this.shipmentsService.startCustomsClearance(id, dto);
   }
 
   @Post(':id/arrival')
