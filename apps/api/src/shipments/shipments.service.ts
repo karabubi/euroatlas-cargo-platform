@@ -7,6 +7,7 @@ import {
 import { ShipmentStatus } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
+import { ArrivalShipmentDto } from './dto/arrival-shipment.dto';
 import { DispatchShipmentDto } from './dto/dispatch-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 
@@ -529,6 +530,73 @@ export class ShipmentsService {
         shipment: updatedShipment,
         trackingEvent,
         dispatchedAt: departureTime,
+      };
+    });
+  }
+
+  async markArrived(id: string, dto: ArrivalShipmentDto) {
+    const shipment = await this.findOne(id);
+
+    const alreadyArrivedStatuses: ShipmentStatus[] = [
+      ShipmentStatus.ARRIVED,
+      ShipmentStatus.CUSTOMS_CLEARANCE,
+      ShipmentStatus.READY_FOR_DELIVERY,
+      ShipmentStatus.DELIVERED,
+    ];
+
+    if (alreadyArrivedStatuses.includes(shipment.status)) {
+      throw new ConflictException(
+        `Shipment ${shipment.shipmentNo} has already arrived.`,
+      );
+    }
+
+    if (shipment.status !== ShipmentStatus.IN_TRANSIT) {
+      throw new ConflictException(
+        `Shipment ${shipment.shipmentNo} must be IN_TRANSIT before arrival can be recorded.`,
+      );
+    }
+
+    await this.assertReadyForStatus(id, ShipmentStatus.ARRIVED);
+
+    const arrivalTime = dto.arrivalTime
+      ? new Date(dto.arrivalTime)
+      : new Date();
+
+    return this.prisma.$transaction(async (transaction) => {
+      const updatedShipment = await transaction.shipment.update({
+        where: {
+          id,
+        },
+
+        data: {
+          status: ShipmentStatus.ARRIVED,
+          actualArrival: arrivalTime,
+        },
+
+        include: {
+          customer: true,
+        },
+      });
+
+      const trackingEvent = await transaction.shipmentTracking.create({
+        data: {
+          shipmentId: id,
+          eventType: 'STATUS_CHANGED',
+          status: ShipmentStatus.ARRIVED,
+          title: 'Shipment arrived at destination',
+          description:
+            dto.notes?.trim() ||
+            `Shipment ${shipment.shipmentNo} arrived at the destination.`,
+          location: dto.location.trim(),
+          createdBy: dto.receivedBy?.trim() || null,
+        },
+      });
+
+      return {
+        message: 'Shipment arrival recorded successfully.',
+        shipment: updatedShipment,
+        trackingEvent,
+        arrivedAt: arrivalTime,
       };
     });
   }
