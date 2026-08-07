@@ -7,6 +7,7 @@ import { getShipmentReadiness } from "@/lib/shipment-readiness-api";
 import type { ShipmentReadinessResponse } from "@/types/shipment-readiness";
 import ShipmentDispatchPanel from "./ShipmentDispatchPanel";
 import ShipmentArrivalPanel from "./ShipmentArrivalPanel";
+import ShipmentCustomsClearancePanel from "./ShipmentCustomsClearancePanel";
 
 type ShipmentReadinessPanelProps = {
   shipmentId: string;
@@ -425,6 +426,14 @@ export default function ShipmentReadinessPanel({
         readinessPercentage={readiness.readinessPercentage}
         blockers={readiness.blockers}
         onArrived={() => void loadReadiness(true)}
+      />
+
+      <ShipmentCustomsClearancePanel
+        shipment={readiness.shipment}
+        isReady={readiness.isReady}
+        readinessPercentage={readiness.readinessPercentage}
+        blockers={readiness.blockers}
+        onCustomsStarted={() => void loadReadiness(true)}
       />
     </div>
   );

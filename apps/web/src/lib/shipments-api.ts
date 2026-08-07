@@ -57,3 +57,16 @@ export function markShipmentArrived(
     },
   );
 }
+
+export function startShipmentCustomsClearance(
+  shipmentId: string,
+  input: import("@/types/shipment").CustomsClearanceShipmentInput,
+): Promise<import("@/types/shipment").CustomsClearanceShipmentResponse> {
+  return apiFetch<import("@/types/shipment").CustomsClearanceShipmentResponse>(
+    `/shipments/${shipmentId}/customs-clearance`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}

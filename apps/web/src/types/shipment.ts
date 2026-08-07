@@ -82,3 +82,28 @@ export type ArrivalShipmentResponse = {
   };
   arrivedAt: string;
 };
+
+export type CustomsClearanceShipmentInput = {
+  location: string;
+  handledBy?: string;
+  customsReference?: string;
+  notes?: string;
+};
+
+export type CustomsClearanceShipmentResponse = {
+  message: string;
+  shipment: Shipment;
+  trackingEvent: {
+    id: string;
+    shipmentId: string;
+    eventType: string;
+    status: string | null;
+    title: string;
+    description: string | null;
+    location: string | null;
+    createdBy: string | null;
+    createdAt: string;
+  };
+  customsReference: string | null;
+  customsStartedAt: string;
+};
