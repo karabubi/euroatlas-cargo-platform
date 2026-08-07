@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { ArrivalShipmentDto } from './dto/arrival-shipment.dto';
 import { CustomsClearanceShipmentDto } from './dto/customs-clearance-shipment.dto';
+import { ReadyForDeliveryShipmentDto } from './dto/ready-for-delivery-shipment.dto';
 import { DispatchShipmentDto } from './dto/dispatch-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 
@@ -666,6 +667,73 @@ export class ShipmentsService {
         trackingEvent,
         customsReference: reference || null,
         customsStartedAt,
+      };
+    });
+  }
+
+  async markReadyForDelivery(id: string, dto: ReadyForDeliveryShipmentDto) {
+    const shipment = await this.findOne(id);
+
+    const readyOrLaterStatuses: ShipmentStatus[] = [
+      ShipmentStatus.READY_FOR_DELIVERY,
+      ShipmentStatus.DELIVERED,
+    ];
+
+    if (readyOrLaterStatuses.includes(shipment.status)) {
+      throw new ConflictException(
+        `Shipment ${shipment.shipmentNo} is already ready for delivery or delivered.`,
+      );
+    }
+
+    if (shipment.status !== ShipmentStatus.CUSTOMS_CLEARANCE) {
+      throw new ConflictException(
+        `Shipment ${shipment.shipmentNo} must be in CUSTOMS_CLEARANCE before it can be marked READY_FOR_DELIVERY.`,
+      );
+    }
+
+    await this.assertReadyForStatus(id, ShipmentStatus.READY_FOR_DELIVERY);
+
+    const readyAt = new Date();
+
+    return this.prisma.$transaction(async (transaction) => {
+      const updatedShipment = await transaction.shipment.update({
+        where: {
+          id,
+        },
+
+        data: {
+          status: ShipmentStatus.READY_FOR_DELIVERY,
+        },
+
+        include: {
+          customer: true,
+        },
+      });
+
+      const reference = dto.releaseReference?.trim();
+
+      const defaultDescription = reference
+        ? `Shipment ${shipment.shipmentNo} was released and is ready for delivery. Reference: ${reference}.`
+        : `Shipment ${shipment.shipmentNo} was released and is ready for delivery.`;
+
+      const trackingEvent = await transaction.shipmentTracking.create({
+        data: {
+          shipmentId: id,
+          eventType: 'STATUS_CHANGED',
+          status: ShipmentStatus.READY_FOR_DELIVERY,
+          title: 'Shipment ready for delivery',
+          description: dto.notes?.trim() || defaultDescription,
+          location: dto.location.trim(),
+          createdBy: dto.releasedBy?.trim() || null,
+        },
+      });
+
+      return {
+        message: 'Shipment marked ready for delivery successfully.',
+        shipment: updatedShipment,
+        trackingEvent,
+        releaseReference: reference || null,
+        readyForDeliveryAt: readyAt,
       };
     });
   }
