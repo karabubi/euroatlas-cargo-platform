@@ -10,6 +10,7 @@ import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { ArrivalShipmentDto } from './dto/arrival-shipment.dto';
 import { CustomsClearanceShipmentDto } from './dto/customs-clearance-shipment.dto';
 import { ReadyForDeliveryShipmentDto } from './dto/ready-for-delivery-shipment.dto';
+import { DeliverShipmentDto } from './dto/deliver-shipment.dto';
 import { DispatchShipmentDto } from './dto/dispatch-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 
@@ -734,6 +735,77 @@ export class ShipmentsService {
         trackingEvent,
         releaseReference: reference || null,
         readyForDeliveryAt: readyAt,
+      };
+    });
+  }
+
+  async markDelivered(id: string, dto: DeliverShipmentDto) {
+    const shipment = await this.findOne(id);
+
+    if (shipment.status === ShipmentStatus.DELIVERED) {
+      throw new ConflictException(
+        `Shipment ${shipment.shipmentNo} has already been delivered.`,
+      );
+    }
+
+    if (shipment.status !== ShipmentStatus.READY_FOR_DELIVERY) {
+      throw new ConflictException(
+        `Shipment ${shipment.shipmentNo} must be READY_FOR_DELIVERY before final delivery can be recorded.`,
+      );
+    }
+
+    await this.assertReadyForStatus(id, ShipmentStatus.DELIVERED);
+
+    const deliveredAt = new Date();
+
+    return this.prisma.$transaction(async (transaction) => {
+      const updatedShipment = await transaction.shipment.update({
+        where: {
+          id,
+        },
+
+        data: {
+          status: ShipmentStatus.DELIVERED,
+        },
+
+        include: {
+          customer: true,
+        },
+      });
+
+      const proofReference = dto.proofReference?.trim();
+
+      const deliveredTo = dto.deliveredTo?.trim();
+
+      let defaultDescription = `Shipment ${shipment.shipmentNo} was delivered successfully.`;
+
+      if (deliveredTo) {
+        defaultDescription = `Shipment ${shipment.shipmentNo} was delivered to ${deliveredTo}.`;
+      }
+
+      if (proofReference) {
+        defaultDescription += ` Proof reference: ${proofReference}.`;
+      }
+
+      const trackingEvent = await transaction.shipmentTracking.create({
+        data: {
+          shipmentId: id,
+          eventType: 'STATUS_CHANGED',
+          status: ShipmentStatus.DELIVERED,
+          title: 'Shipment delivered',
+          description: dto.notes?.trim() || defaultDescription,
+          location: dto.location.trim(),
+          createdBy: deliveredTo || null,
+        },
+      });
+
+      return {
+        message: 'Shipment delivered successfully.',
+        shipment: updatedShipment,
+        trackingEvent,
+        deliveredTo: deliveredTo || null,
+        proofReference: proofReference || null,
+        deliveredAt,
       };
     });
   }

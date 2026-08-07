@@ -15,6 +15,7 @@ import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { ArrivalShipmentDto } from './dto/arrival-shipment.dto';
 import { CustomsClearanceShipmentDto } from './dto/customs-clearance-shipment.dto';
 import { ReadyForDeliveryShipmentDto } from './dto/ready-for-delivery-shipment.dto';
+import { DeliverShipmentDto } from './dto/deliver-shipment.dto';
 import { DispatchShipmentDto } from './dto/dispatch-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 import { ShipmentsService } from './shipments.service';
@@ -32,6 +33,11 @@ export class ShipmentsController {
   @Get()
   findAll(@Query('search') search?: string, @Query('status') status?: string) {
     return this.shipmentsService.findAll(search, status);
+  }
+
+  @Post(':id/delivery')
+  markDelivered(@Param('id') id: string, @Body() dto: DeliverShipmentDto) {
+    return this.shipmentsService.markDelivered(id, dto);
   }
 
   @Post(':id/ready-for-delivery')
