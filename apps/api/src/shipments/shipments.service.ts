@@ -25,6 +25,15 @@ export class ShipmentsService {
     ShipmentStatus.DELIVERED,
   ]);
 
+  private readonly controlledWorkflowStatuses = new Set<ShipmentStatus>([
+    ShipmentStatus.LOADED,
+    ShipmentStatus.IN_TRANSIT,
+    ShipmentStatus.ARRIVED,
+    ShipmentStatus.CUSTOMS_CLEARANCE,
+    ShipmentStatus.READY_FOR_DELIVERY,
+    ShipmentStatus.DELIVERED,
+  ]);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createShipmentDto: CreateShipmentDto) {
@@ -836,6 +845,16 @@ export class ShipmentsService {
       updateShipmentDto.status &&
       updateShipmentDto.status !== shipment.status
     ) {
+      const touchesControlledWorkflow =
+        this.controlledWorkflowStatuses.has(shipment.status) ||
+        this.controlledWorkflowStatuses.has(updateShipmentDto.status);
+
+      if (touchesControlledWorkflow) {
+        throw new ConflictException(
+          'Operational shipment status changes must use dedicated workflow endpoints.',
+        );
+      }
+
       await this.assertReadyForStatus(id, updateShipmentDto.status);
     }
 
