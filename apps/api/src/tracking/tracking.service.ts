@@ -1,16 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
+import { TrackingEventType } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
-import { ShipmentsService } from '../shipments/shipments.service';
 import { CreateTrackingDto } from './dto/create-tracking.dto';
 import { UpdateTrackingDto } from './dto/update-tracking.dto';
 
 @Injectable()
 export class TrackingService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly shipmentsService: ShipmentsService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(createTrackingDto: CreateTrackingDto) {
     const shipment = await this.prisma.shipment.findUnique({
@@ -19,7 +20,6 @@ export class TrackingService {
       },
       select: {
         id: true,
-        status: true,
       },
     });
 
@@ -27,36 +27,10 @@ export class TrackingService {
       throw new NotFoundException('Shipment not found.');
     }
 
-    if (
-      createTrackingDto.status &&
-      createTrackingDto.status !== shipment.status
-    ) {
-      await this.shipmentsService.assertReadyForStatus(
-        shipment.id,
-        createTrackingDto.status,
-      );
-    }
+    this.assertNoWorkflowMutation(createTrackingDto);
 
-    return this.prisma.$transaction(async (transaction) => {
-      const trackingEvent = await transaction.shipmentTracking.create({
-        data: createTrackingDto,
-      });
-
-      if (
-        createTrackingDto.status &&
-        createTrackingDto.status !== shipment.status
-      ) {
-        await transaction.shipment.update({
-          where: {
-            id: shipment.id,
-          },
-          data: {
-            status: createTrackingDto.status,
-          },
-        });
-      }
-
-      return trackingEvent;
+    return this.prisma.shipmentTracking.create({
+      data: createTrackingDto,
     });
   }
 
@@ -133,41 +107,30 @@ export class TrackingService {
   async update(id: string, updateTrackingDto: UpdateTrackingDto) {
     const existingTrackingEvent = await this.findOne(id);
 
-    if (
-      updateTrackingDto.status &&
-      updateTrackingDto.status !== existingTrackingEvent.shipment.status
-    ) {
-      await this.shipmentsService.assertReadyForStatus(
-        existingTrackingEvent.shipmentId,
-        updateTrackingDto.status,
+    if (existingTrackingEvent.eventType === TrackingEventType.STATUS_CHANGED) {
+      throw new BadRequestException(
+        'Workflow-generated status tracking events cannot be edited through the generic tracking API.',
       );
     }
 
-    return this.prisma.$transaction(async (transaction) => {
-      const trackingEvent = await transaction.shipmentTracking.update({
-        where: {
-          id,
-        },
-        data: updateTrackingDto,
-      });
+    this.assertNoWorkflowMutation(updateTrackingDto);
 
-      if (updateTrackingDto.status) {
-        await transaction.shipment.update({
-          where: {
-            id: trackingEvent.shipmentId,
-          },
-          data: {
-            status: updateTrackingDto.status,
-          },
-        });
-      }
-
-      return trackingEvent;
+    return this.prisma.shipmentTracking.update({
+      where: {
+        id,
+      },
+      data: updateTrackingDto,
     });
   }
 
   async remove(id: string) {
-    await this.findOne(id);
+    const existingTrackingEvent = await this.findOne(id);
+
+    if (existingTrackingEvent.eventType === TrackingEventType.STATUS_CHANGED) {
+      throw new BadRequestException(
+        'Workflow-generated status tracking events cannot be deleted through the generic tracking API.',
+      );
+    }
 
     await this.prisma.shipmentTracking.delete({
       where: {
@@ -178,5 +141,18 @@ export class TrackingService {
     return {
       message: 'Tracking event deleted successfully.',
     };
+  }
+
+  private assertNoWorkflowMutation(
+    dto: Partial<Pick<CreateTrackingDto, 'eventType' | 'status'>>,
+  ): void {
+    if (
+      dto.eventType === TrackingEventType.STATUS_CHANGED ||
+      dto.status !== undefined
+    ) {
+      throw new BadRequestException(
+        'Shipment workflow status changes must use the dedicated shipment workflow endpoints.',
+      );
+    }
   }
 }
