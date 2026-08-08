@@ -17,7 +17,13 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
+    "test:unit": "jest --runInBand",
+    "test:db": "bash ./test/run-db-integration.sh",
+    "test:all": "pnpm run test:unit && pnpm run test:e2e && pnpm run test:db",
+    "typecheck": "tsc --noEmit",
+    "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\"",
+    "verify": "pnpm run test:all && pnpm run typecheck && pnpm run lint:check && pnpm run build"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
