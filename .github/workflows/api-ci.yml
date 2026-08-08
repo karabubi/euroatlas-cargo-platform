@@ -1,0 +1,134 @@
+name: API CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "phase-*"
+
+  pull_request:
+
+jobs:
+  api:
+    name: API verification
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: euroatlas
+          POSTGRES_PASSWORD: euroatlas_password
+          POSTGRES_DB: euroatlas_cargo_test
+
+        ports:
+          - 5432:5432
+
+        options: >-
+          --health-cmd
+          "pg_isready -U euroatlas -d euroatlas_cargo_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: >-
+        postgresql://euroatlas:euroatlas_password@localhost:5432/euroatlas_cargo_test?schema=public
+
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --dir apps/api exec prisma generate
+
+      - name: Verify database target
+        shell: bash
+        run: |
+          node <<'NODE'
+          const raw = process.env.DATABASE_URL;
+
+          if (!raw) {
+            throw new Error(
+              'DATABASE_URL is missing.',
+            );
+          }
+
+          const url = new URL(raw);
+
+          const database =
+            decodeURIComponent(
+              url.pathname.replace(/^\/+/, ''),
+            );
+
+          if (
+            database !==
+            'euroatlas_cargo_test'
+          ) {
+            throw new Error(
+              `Unsafe CI database: ${database}`,
+            );
+          }
+
+          console.log(
+            'Safe CI database:',
+            database,
+          );
+          NODE
+
+      - name: Apply Prisma migrations
+        run: >
+          pnpm --dir apps/api
+          exec prisma migrate deploy
+
+      - name: Run API verification
+        run: >
+          pnpm --dir apps/api
+          run verify
+
+      - name: Verify test database cleanup
+        env:
+          PGPASSWORD: euroatlas_password
+        run: |
+          COUNTS="$(
+            psql \
+              -h localhost \
+              -p 5432 \
+              -U euroatlas \
+              -d euroatlas_cargo_test \
+              -tA \
+              -F ':' \
+              -c 'SELECT
+                    (SELECT COUNT(*) FROM "Customer"),
+                    (SELECT COUNT(*) FROM "Shipment"),
+                    (SELECT COUNT(*) FROM "ShipmentTracking"),
+                    (SELECT COUNT(*) FROM "Vehicle"),
+                    (SELECT COUNT(*) FROM "VehicleInspection"),
+                    (SELECT COUNT(*) FROM "ShipmentDocument");'
+          )"
+
+          echo "Cleanup counts: ${COUNTS}"
+
+          if [[ "${COUNTS}" != "0:0:0:0:0:0" ]]; then
+            echo "Test database was not fully cleaned."
+            exit 1
+          fi
