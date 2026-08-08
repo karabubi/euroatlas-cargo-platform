@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "lint:check": "eslint",
+    "verify": "pnpm run typecheck && pnpm run lint:check && pnpm run build"
   },
   "dependencies": {
     "next": "16.2.12",

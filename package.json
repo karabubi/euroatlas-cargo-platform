@@ -10,6 +10,8 @@
     "test:api": "pnpm --dir apps/api run test:unit",
     "test:api:e2e": "pnpm --dir apps/api run test:e2e",
     "test:api:db": "pnpm --dir apps/api run test:db",
-    "verify:api": "pnpm --dir apps/api run verify"
+    "verify:api": "pnpm --dir apps/api run verify",
+    "verify:web": "pnpm --dir apps/web run verify",
+    "verify": "pnpm run verify:api && pnpm run verify:web"
   }
 }
