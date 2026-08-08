@@ -292,8 +292,6 @@ export default function AddTrackingEventForm({
               onChange={(event) => handleEventTypeChange(event.target.value)}
               className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
             >
-              <option value="STATUS_CHANGED">Status changed</option>
-
               <option value="LOCATION_UPDATE">Location update</option>
 
               <option value="DOCUMENT_UPLOADED">Document uploaded</option>

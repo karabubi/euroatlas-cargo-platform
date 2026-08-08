@@ -5,6 +5,11 @@ import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { apiFetch } from '@/lib/api';
+import {
+  formatShipmentStatus,
+  shipmentStatusBadgeClass,
+} from '@/lib/shipment-status-ui';
+import type { ShipmentStatus } from '@/types/shipment';
 
 type Customer = {
   id: string;
@@ -25,7 +30,7 @@ type Shipment = {
   originCity?: string | null;
   destinationCountry?: string | null;
   destinationCity?: string | null;
-  status: string;
+  status: ShipmentStatus;
   estimatedDeparture?: string | null;
   actualDeparture?: string | null;
   estimatedArrival?: string | null;
@@ -74,14 +79,6 @@ function getCustomerName(customer: Customer) {
   }
 
   return `${customer.firstName} ${customer.lastName}`.trim();
-}
-
-function formatStatus(status: string) {
-  return status
-    .toLowerCase()
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
 }
 
 function formatDate(value?: string | null) {
@@ -316,7 +313,9 @@ export default function ShipmentsPage() {
       originCity: form.originCity.trim() || undefined,
       destinationCountry: form.destinationCountry.trim(),
       destinationCity: form.destinationCity.trim() || undefined,
-      status: form.status.trim() || undefined,
+      ...(!editingShipment
+        ? { status: form.status.trim() || 'DRAFT' }
+        : {}),
       estimatedDeparture: dateToIso(form.estimatedDeparture),
       actualDeparture: dateToIso(form.actualDeparture),
       estimatedArrival: dateToIso(form.estimatedArrival),
@@ -580,6 +579,7 @@ export default function ShipmentsPage() {
 
                 <input
                   value={form.status}
+                  disabled={Boolean(editingShipment)}
                   onChange={(event) =>
                     updateForm('status', event.target.value.toUpperCase())
                   }
@@ -588,7 +588,9 @@ export default function ShipmentsPage() {
                 />
 
                 <span className="block text-xs text-slate-500">
-                  Use an exact value from your ShipmentStatus enum.
+                  {editingShipment
+                    ? 'Status changes use the controlled shipment workflow.'
+                    : 'New shipments start in the selected pre-operational status.'}
                 </span>
               </label>
             </div>
@@ -811,8 +813,12 @@ export default function ShipmentsPage() {
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4">
-                      <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                        {formatStatus(shipment.status)}
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${shipmentStatusBadgeClass(
+                          shipment.status,
+                        )}`}
+                      >
+                        {formatShipmentStatus(shipment.status)}
                       </span>
                     </td>
 

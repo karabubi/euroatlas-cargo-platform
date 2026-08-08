@@ -113,6 +113,8 @@ export default function ShipmentReadinessPanel({
     return null;
   }
 
+  const isCancelledShipment = readiness.shipment.status === "CANCELLED";
+
   return (
     <div className="grid gap-8">
       <section className="overflow-hidden rounded-3xl bg-white shadow-sm">
@@ -419,48 +421,52 @@ export default function ShipmentReadinessPanel({
         onCancelled={() => void loadReadiness(true)}
       />
 
-      <ShipmentDispatchPanel
-        shipmentId={readiness.shipment.id}
-        shipmentNo={readiness.shipment.shipmentNo}
-        currentStatus={readiness.shipment.status}
-        isReady={readiness.isReady}
-        readinessPercentage={readiness.readinessPercentage}
-        blockers={readiness.blockers}
-        onDispatched={() => void loadReadiness(true)}
-      />
-      <ShipmentArrivalPanel
-        shipmentId={readiness.shipment.id}
-        shipmentNo={readiness.shipment.shipmentNo}
-        currentStatus={readiness.shipment.status}
-        isReady={readiness.isReady}
-        readinessPercentage={readiness.readinessPercentage}
-        blockers={readiness.blockers}
-        onArrived={() => void loadReadiness(true)}
-      />
+      {!isCancelledShipment && (
+        <>
+          <ShipmentDispatchPanel
+            shipmentId={readiness.shipment.id}
+            shipmentNo={readiness.shipment.shipmentNo}
+            currentStatus={readiness.shipment.status}
+            isReady={readiness.isReady}
+            readinessPercentage={readiness.readinessPercentage}
+            blockers={readiness.blockers}
+            onDispatched={() => void loadReadiness(true)}
+          />
+          <ShipmentArrivalPanel
+            shipmentId={readiness.shipment.id}
+            shipmentNo={readiness.shipment.shipmentNo}
+            currentStatus={readiness.shipment.status}
+            isReady={readiness.isReady}
+            readinessPercentage={readiness.readinessPercentage}
+            blockers={readiness.blockers}
+            onArrived={() => void loadReadiness(true)}
+          />
 
-      <ShipmentCustomsClearancePanel
-        shipment={readiness.shipment}
-        isReady={readiness.isReady}
-        readinessPercentage={readiness.readinessPercentage}
-        blockers={readiness.blockers}
-        onCustomsStarted={() => void loadReadiness(true)}
-      />
+          <ShipmentCustomsClearancePanel
+            shipment={readiness.shipment}
+            isReady={readiness.isReady}
+            readinessPercentage={readiness.readinessPercentage}
+            blockers={readiness.blockers}
+            onCustomsStarted={() => void loadReadiness(true)}
+          />
 
-      <ShipmentReadyForDeliveryPanel
-        shipment={readiness.shipment}
-        isReady={readiness.isReady}
-        readinessPercentage={readiness.readinessPercentage}
-        blockers={readiness.blockers}
-        onReadyForDelivery={() => void loadReadiness(true)}
-      />
+          <ShipmentReadyForDeliveryPanel
+            shipment={readiness.shipment}
+            isReady={readiness.isReady}
+            readinessPercentage={readiness.readinessPercentage}
+            blockers={readiness.blockers}
+            onReadyForDelivery={() => void loadReadiness(true)}
+          />
 
-      <ShipmentDeliveryPanel
-        shipment={readiness.shipment}
-        isReady={readiness.isReady}
-        readinessPercentage={readiness.readinessPercentage}
-        blockers={readiness.blockers}
-        onDelivered={() => void loadReadiness(true)}
-      />
+          <ShipmentDeliveryPanel
+            shipment={readiness.shipment}
+            isReady={readiness.isReady}
+            readinessPercentage={readiness.readinessPercentage}
+            blockers={readiness.blockers}
+            onDelivered={() => void loadReadiness(true)}
+          />
+        </>
+      )}
     </div>
   );
 }

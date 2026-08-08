@@ -252,9 +252,7 @@ export default function EditShipmentPage() {
           body: JSON.stringify({
             shipmentNo: form.shipmentNo.trim(),
             customerId,
-            status: shipmentStatus,
-
-            originCountry: form.originCountry.trim(),
+originCountry: form.originCountry.trim(),
             originCity: nullableText(form.originCity),
             originPort: nullableText(form.originPort),
 

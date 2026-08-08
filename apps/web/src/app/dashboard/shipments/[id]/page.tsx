@@ -8,6 +8,11 @@ import ShipmentDocumentsPanel from "@/components/documents/ShipmentDocumentsPane
 import ShipmentTrackingPanel from "@/components/tracking/ShipmentTrackingPanel";
 import ShipmentReadinessPanel from "@/components/shipments/ShipmentReadinessPanel";
 import { apiFetch } from "@/lib/api";
+import {
+  formatShipmentStatus,
+  shipmentStatusBadgeClass,
+} from "@/lib/shipment-status-ui";
+import type { ShipmentStatus } from "@/types/shipment";
 
 type Customer = {
   id: string;
@@ -23,7 +28,7 @@ type Shipment = {
   id: string;
   shipmentNo: string;
   customerId: string;
-  status: string;
+  status: ShipmentStatus;
 
   originCountry: string;
   originCity: string | null;
@@ -173,7 +178,19 @@ export default function ShipmentDetailsPage() {
       </header>
 
       <section className="grid gap-6 md:grid-cols-3">
-        <SummaryCard label="Status" value={shipment.status} />
+        <article className="rounded-2xl bg-white p-6 shadow-sm">
+          <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            Status
+          </p>
+
+          <span
+            className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-semibold ${shipmentStatusBadgeClass(
+              shipment.status,
+            )}`}
+          >
+            {formatShipmentStatus(shipment.status)}
+          </span>
+        </article>
 
         <SummaryCard label="Customer" value={customerName(shipment.customer)} />
 
