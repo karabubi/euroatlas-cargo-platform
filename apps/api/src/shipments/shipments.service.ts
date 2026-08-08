@@ -13,6 +13,7 @@ import { ReadyForDeliveryShipmentDto } from './dto/ready-for-delivery-shipment.d
 import { DeliverShipmentDto } from './dto/deliver-shipment.dto';
 import { DispatchShipmentDto } from './dto/dispatch-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
+import { isShipmentTransitionAllowed } from './shipment-workflow';
 
 @Injectable()
 export class ShipmentsService {
@@ -553,7 +554,7 @@ export class ShipmentsService {
       );
     }
 
-    if (shipment.status !== ShipmentStatus.IN_TRANSIT) {
+    if (!isShipmentTransitionAllowed(shipment.status, ShipmentStatus.ARRIVED)) {
       throw new ConflictException(
         `Shipment ${shipment.shipmentNo} must be IN_TRANSIT before arrival can be recorded.`,
       );
@@ -619,7 +620,12 @@ export class ShipmentsService {
       );
     }
 
-    if (shipment.status !== ShipmentStatus.ARRIVED) {
+    if (
+      !isShipmentTransitionAllowed(
+        shipment.status,
+        ShipmentStatus.CUSTOMS_CLEARANCE,
+      )
+    ) {
       throw new ConflictException(
         `Shipment ${shipment.shipmentNo} must be ARRIVED before customs clearance can start.`,
       );
@@ -686,7 +692,12 @@ export class ShipmentsService {
       );
     }
 
-    if (shipment.status !== ShipmentStatus.CUSTOMS_CLEARANCE) {
+    if (
+      !isShipmentTransitionAllowed(
+        shipment.status,
+        ShipmentStatus.READY_FOR_DELIVERY,
+      )
+    ) {
       throw new ConflictException(
         `Shipment ${shipment.shipmentNo} must be in CUSTOMS_CLEARANCE before it can be marked READY_FOR_DELIVERY.`,
       );
@@ -748,7 +759,9 @@ export class ShipmentsService {
       );
     }
 
-    if (shipment.status !== ShipmentStatus.READY_FOR_DELIVERY) {
+    if (
+      !isShipmentTransitionAllowed(shipment.status, ShipmentStatus.DELIVERED)
+    ) {
       throw new ConflictException(
         `Shipment ${shipment.shipmentNo} must be READY_FOR_DELIVERY before final delivery can be recorded.`,
       );
