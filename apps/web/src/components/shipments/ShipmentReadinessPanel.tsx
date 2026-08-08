@@ -10,6 +10,7 @@ import ShipmentArrivalPanel from "./ShipmentArrivalPanel";
 import ShipmentCustomsClearancePanel from "./ShipmentCustomsClearancePanel";
 import ShipmentReadyForDeliveryPanel from "./ShipmentReadyForDeliveryPanel";
 import ShipmentDeliveryPanel from "./ShipmentDeliveryPanel";
+import ShipmentCancellationPanel from "./ShipmentCancellationPanel";
 
 type ShipmentReadinessPanelProps = {
   shipmentId: string;
@@ -410,6 +411,13 @@ export default function ShipmentReadinessPanel({
           </footer>
         </div>
       </section>
+
+      <ShipmentCancellationPanel
+        shipmentId={readiness.shipment.id}
+        shipmentNo={readiness.shipment.shipmentNo}
+        currentStatus={readiness.shipment.status}
+        onCancelled={() => void loadReadiness(true)}
+      />
 
       <ShipmentDispatchPanel
         shipmentId={readiness.shipment.id}

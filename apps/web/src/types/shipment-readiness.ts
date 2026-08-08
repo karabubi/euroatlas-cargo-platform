@@ -1,3 +1,5 @@
+import type { ShipmentStatus } from "@/types/shipment";
+
 export type ShipmentReadinessCheck = {
   key: string;
   label: string;
@@ -63,7 +65,7 @@ export type ShipmentReadinessResponse = {
   shipment: {
     id: string;
     shipmentNo: string;
-    status: string;
+    status: ShipmentStatus;
     isActive: boolean;
     originCountry: string;
     destinationCountry: string;

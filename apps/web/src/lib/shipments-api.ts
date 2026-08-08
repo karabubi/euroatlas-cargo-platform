@@ -96,3 +96,16 @@ export function deliverShipment(
     },
   );
 }
+
+export function cancelShipment(
+  shipmentId: string,
+  input: import("@/types/shipment").CancelShipmentInput,
+): Promise<import("@/types/shipment").CancelShipmentResponse> {
+  return apiFetch<import("@/types/shipment").CancelShipmentResponse>(
+    `/shipments/${shipmentId}/cancel`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}

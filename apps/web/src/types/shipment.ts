@@ -1,6 +1,9 @@
 export type ShipmentStatus =
   | "DRAFT"
+  | "QUOTED"
   | "BOOKED"
+  | "RECEIVED"
+  | "LOADED"
   | "IN_TRANSIT"
   | "ARRIVED"
   | "CUSTOMS_CLEARANCE"
@@ -157,4 +160,30 @@ export type DeliverShipmentResponse = {
   deliveredTo: string | null;
   proofReference: string | null;
   deliveredAt: string;
+};
+
+export type CancelShipmentInput = {
+  reason: string;
+  cancelledBy?: string;
+  location?: string;
+  notes?: string;
+};
+
+export type CancelShipmentResponse = {
+  message: string;
+  shipment: Shipment;
+  trackingEvent: {
+    id: string;
+    shipmentId: string;
+    eventType: string;
+    status: string | null;
+    title: string;
+    description: string | null;
+    location: string | null;
+    createdBy: string | null;
+    createdAt: string;
+  };
+  cancellationReason: string;
+  cancelledBy?: string | null;
+  cancelledAt: string;
 };
