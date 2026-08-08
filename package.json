@@ -13,5 +13,10 @@
     "verify:api": "pnpm --dir apps/api run verify",
     "verify:web": "pnpm --dir apps/web run verify",
     "verify": "pnpm run verify:api && pnpm run verify:web"
+  },
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": "20.19.x",
+    "pnpm": "10.34.x"
   }
 }
