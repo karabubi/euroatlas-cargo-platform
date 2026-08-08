@@ -8,6 +8,7 @@ import { ShipmentStatus } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { ArrivalShipmentDto } from './dto/arrival-shipment.dto';
+import { CancelShipmentDto } from './dto/cancel-shipment.dto';
 import { CustomsClearanceShipmentDto } from './dto/customs-clearance-shipment.dto';
 import { ReadyForDeliveryShipmentDto } from './dto/ready-for-delivery-shipment.dto';
 import { DeliverShipmentDto } from './dto/deliver-shipment.dto';
@@ -32,6 +33,7 @@ export class ShipmentsService {
     ShipmentStatus.CUSTOMS_CLEARANCE,
     ShipmentStatus.READY_FOR_DELIVERY,
     ShipmentStatus.DELIVERED,
+    ShipmentStatus.CANCELLED,
   ]);
 
   constructor(private readonly prisma: PrismaService) {}
@@ -763,6 +765,96 @@ export class ShipmentsService {
         readyForDeliveryAt: readyAt,
       };
     });
+  }
+
+  async cancel(
+    id: string,
+
+    dto: CancelShipmentDto,
+  ) {
+    const shipment = await this.findOne(id);
+
+    if (shipment.status === ShipmentStatus.CANCELLED) {
+      throw new ConflictException(
+        `Shipment ${shipment.shipmentNo} is already cancelled.`,
+      );
+    }
+
+    if (
+      !isShipmentTransitionAllowed(
+        shipment.status,
+
+        ShipmentStatus.CANCELLED,
+      )
+    ) {
+      throw new ConflictException(
+        `Shipment ${shipment.shipmentNo} cannot be cancelled from status ${shipment.status}.`,
+      );
+    }
+
+    const reason = dto.reason.trim();
+
+    const cancelledBy = dto.cancelledBy?.trim() || undefined;
+
+    const location = dto.location?.trim() || undefined;
+
+    const notes = dto.notes?.trim() || undefined;
+
+    const description = notes ? `${reason} ${notes}` : reason;
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updatedShipment = await tx.shipment.update({
+        where: {
+          id,
+        },
+
+        data: {
+          status: ShipmentStatus.CANCELLED,
+        },
+
+        include: {
+          customer: true,
+        },
+      });
+
+      const trackingEvent = await tx.shipmentTracking.create({
+        data: {
+          shipmentId: id,
+
+          eventType: 'STATUS_CHANGED',
+
+          status: ShipmentStatus.CANCELLED,
+
+          title: 'Shipment cancelled',
+
+          description,
+
+          location,
+
+          createdBy: cancelledBy,
+        },
+      });
+
+      return {
+        shipment: updatedShipment,
+
+        trackingEvent,
+      };
+    });
+
+    return {
+      message: 'Shipment cancelled successfully.',
+
+      shipment: result.shipment,
+
+      trackingEvent: result.trackingEvent,
+
+      cancellationReason: reason,
+
+      cancelledBy,
+
+      cancelledAt: result.trackingEvent.createdAt,
+    };
   }
 
   async markDelivered(id: string, dto: DeliverShipmentDto) {

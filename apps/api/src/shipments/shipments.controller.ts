@@ -13,6 +13,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { ArrivalShipmentDto } from './dto/arrival-shipment.dto';
+import { CancelShipmentDto } from './dto/cancel-shipment.dto';
 import { CustomsClearanceShipmentDto } from './dto/customs-clearance-shipment.dto';
 import { ReadyForDeliveryShipmentDto } from './dto/ready-for-delivery-shipment.dto';
 import { DeliverShipmentDto } from './dto/deliver-shipment.dto';
@@ -33,6 +34,11 @@ export class ShipmentsController {
   @Get()
   findAll(@Query('search') search?: string, @Query('status') status?: string) {
     return this.shipmentsService.findAll(search, status);
+  }
+
+  @Post(':id/cancel')
+  cancel(@Param('id') id: string, @Body() dto: CancelShipmentDto) {
+    return this.shipmentsService.cancel(id, dto);
   }
 
   @Post(':id/delivery')

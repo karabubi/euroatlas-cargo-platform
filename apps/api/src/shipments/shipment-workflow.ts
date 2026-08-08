@@ -3,15 +3,18 @@ import { ShipmentStatus } from '../../generated/prisma/enums';
 export const SHIPMENT_WORKFLOW_TRANSITIONS: Readonly<
   Partial<Record<ShipmentStatus, readonly ShipmentStatus[]>>
 > = {
-  [ShipmentStatus.DRAFT]: [ShipmentStatus.QUOTED],
+  [ShipmentStatus.DRAFT]: [ShipmentStatus.QUOTED, ShipmentStatus.CANCELLED],
 
-  [ShipmentStatus.QUOTED]: [ShipmentStatus.BOOKED],
+  [ShipmentStatus.QUOTED]: [ShipmentStatus.BOOKED, ShipmentStatus.CANCELLED],
 
-  [ShipmentStatus.BOOKED]: [ShipmentStatus.RECEIVED],
+  [ShipmentStatus.BOOKED]: [ShipmentStatus.RECEIVED, ShipmentStatus.CANCELLED],
 
-  [ShipmentStatus.RECEIVED]: [ShipmentStatus.LOADED],
+  [ShipmentStatus.RECEIVED]: [ShipmentStatus.LOADED, ShipmentStatus.CANCELLED],
 
-  [ShipmentStatus.LOADED]: [ShipmentStatus.IN_TRANSIT],
+  [ShipmentStatus.LOADED]: [
+    ShipmentStatus.IN_TRANSIT,
+    ShipmentStatus.CANCELLED,
+  ],
 
   [ShipmentStatus.IN_TRANSIT]: [ShipmentStatus.ARRIVED],
 
@@ -22,6 +25,8 @@ export const SHIPMENT_WORKFLOW_TRANSITIONS: Readonly<
   [ShipmentStatus.READY_FOR_DELIVERY]: [ShipmentStatus.DELIVERED],
 
   [ShipmentStatus.DELIVERED]: [],
+
+  [ShipmentStatus.CANCELLED]: [],
 };
 
 export function getAllowedShipmentTransitions(
@@ -38,5 +43,7 @@ export function isShipmentTransitionAllowed(
 }
 
 export function isShipmentTerminalStatus(status: ShipmentStatus): boolean {
-  return status === ShipmentStatus.DELIVERED;
+  return (
+    status === ShipmentStatus.DELIVERED || status === ShipmentStatus.CANCELLED
+  );
 }
