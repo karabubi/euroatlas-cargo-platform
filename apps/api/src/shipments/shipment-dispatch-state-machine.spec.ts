@@ -9,7 +9,6 @@ describe('Shipment dispatch state machine', () => {
   let service: ShipmentsService;
 
   const shipmentFindUnique = jest.fn();
-
   const transaction = jest.fn();
 
   const prismaMock = {
@@ -35,10 +34,26 @@ describe('Shipment dispatch state machine', () => {
     service = new ShipmentsService(prismaMock as unknown as PrismaService);
   });
 
-  it('rejects DRAFT -> IN_TRANSIT', async () => {
+  it('rejects DRAFT -> LOADED', async () => {
     shipmentFindUnique.mockResolvedValue({
       ...baseShipment,
       status: ShipmentStatus.DRAFT,
+    });
+
+    await expect(
+      service.dispatch(baseShipment.id, {
+        status: ShipmentStatus.LOADED,
+        location: 'Hamburg Port',
+      }),
+    ).rejects.toThrow(ConflictException);
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects RECEIVED -> IN_TRANSIT', async () => {
+    shipmentFindUnique.mockResolvedValue({
+      ...baseShipment,
+      status: ShipmentStatus.RECEIVED,
     });
 
     await expect(

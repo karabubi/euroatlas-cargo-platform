@@ -3,8 +3,11 @@ import { ShipmentStatus } from '../../generated/prisma/enums';
 import { SHIPMENT_WORKFLOW_TRANSITIONS } from './shipment-workflow';
 
 describe('Shipment status workflow coverage', () => {
-  const operationalStatuses = new Set<ShipmentStatus>([
+  const workflowDefinedStatuses = new Set<ShipmentStatus>([
     ShipmentStatus.DRAFT,
+    ShipmentStatus.QUOTED,
+    ShipmentStatus.BOOKED,
+    ShipmentStatus.RECEIVED,
     ShipmentStatus.LOADED,
     ShipmentStatus.IN_TRANSIT,
     ShipmentStatus.ARRIVED,
@@ -14,9 +17,6 @@ describe('Shipment status workflow coverage', () => {
   ]);
 
   const pendingBusinessDefinition = new Set<ShipmentStatus>([
-    ShipmentStatus.QUOTED,
-    ShipmentStatus.BOOKED,
-    ShipmentStatus.RECEIVED,
     ShipmentStatus.CANCELLED,
   ]);
 
@@ -24,7 +24,7 @@ describe('Shipment status workflow coverage', () => {
     const enumStatuses = Object.values(ShipmentStatus);
 
     const classified = new Set([
-      ...operationalStatuses,
+      ...workflowDefinedStatuses,
       ...pendingBusinessDefinition,
     ]);
 
@@ -35,17 +35,31 @@ describe('Shipment status workflow coverage', () => {
     );
   });
 
-  it('keeps pre-operational statuses out of the enforced workflow until their business rules are defined', () => {
-    for (const status of pendingBusinessDefinition) {
-      expect(SHIPMENT_WORKFLOW_TRANSITIONS[status]).toBeUndefined();
-    }
+  it('keeps only CANCELLED outside the enforced workflow until cancellation rules are defined', () => {
+    expect(
+      SHIPMENT_WORKFLOW_TRANSITIONS[ShipmentStatus.CANCELLED],
+    ).toBeUndefined();
   });
 
-  it('keeps the operational state machine explicit', () => {
+  it('defines the complete pre-operational workflow', () => {
     expect(SHIPMENT_WORKFLOW_TRANSITIONS[ShipmentStatus.DRAFT]).toEqual([
-      ShipmentStatus.LOADED,
+      ShipmentStatus.QUOTED,
     ]);
 
+    expect(SHIPMENT_WORKFLOW_TRANSITIONS[ShipmentStatus.QUOTED]).toEqual([
+      ShipmentStatus.BOOKED,
+    ]);
+
+    expect(SHIPMENT_WORKFLOW_TRANSITIONS[ShipmentStatus.BOOKED]).toEqual([
+      ShipmentStatus.RECEIVED,
+    ]);
+
+    expect(SHIPMENT_WORKFLOW_TRANSITIONS[ShipmentStatus.RECEIVED]).toEqual([
+      ShipmentStatus.LOADED,
+    ]);
+  });
+
+  it('keeps DELIVERED terminal', () => {
     expect(SHIPMENT_WORKFLOW_TRANSITIONS[ShipmentStatus.DELIVERED]).toEqual([]);
   });
 });

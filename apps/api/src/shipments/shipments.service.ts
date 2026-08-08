@@ -855,6 +855,14 @@ export class ShipmentsService {
         );
       }
 
+      if (
+        !isShipmentTransitionAllowed(shipment.status, updateShipmentDto.status)
+      ) {
+        throw new ConflictException(
+          `Shipment ${shipment.shipmentNo} cannot move from ${shipment.status} to ${updateShipmentDto.status}.`,
+        );
+      }
+
       await this.assertReadyForStatus(id, updateShipmentDto.status);
     }
 
