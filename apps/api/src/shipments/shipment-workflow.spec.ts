@@ -10,12 +10,11 @@ import {
 describe('Shipment workflow state machine', () => {
   describe('allowed transitions', () => {
     it.each([
+      [ShipmentStatus.DRAFT, ShipmentStatus.LOADED],
+      [ShipmentStatus.LOADED, ShipmentStatus.IN_TRANSIT],
       [ShipmentStatus.IN_TRANSIT, ShipmentStatus.ARRIVED],
-
       [ShipmentStatus.ARRIVED, ShipmentStatus.CUSTOMS_CLEARANCE],
-
       [ShipmentStatus.CUSTOMS_CLEARANCE, ShipmentStatus.READY_FOR_DELIVERY],
-
       [ShipmentStatus.READY_FOR_DELIVERY, ShipmentStatus.DELIVERED],
     ])('allows %s -> %s', (currentStatus, targetStatus) => {
       expect(isShipmentTransitionAllowed(currentStatus, targetStatus)).toBe(
@@ -26,22 +25,33 @@ describe('Shipment workflow state machine', () => {
 
   describe('illegal transitions', () => {
     it.each([
+      [ShipmentStatus.DRAFT, ShipmentStatus.IN_TRANSIT],
+      [ShipmentStatus.DRAFT, ShipmentStatus.ARRIVED],
+      [ShipmentStatus.LOADED, ShipmentStatus.ARRIVED],
+      [ShipmentStatus.LOADED, ShipmentStatus.LOADED],
       [ShipmentStatus.IN_TRANSIT, ShipmentStatus.DELIVERED],
-
       [ShipmentStatus.ARRIVED, ShipmentStatus.DELIVERED],
-
       [ShipmentStatus.ARRIVED, ShipmentStatus.READY_FOR_DELIVERY],
-
       [ShipmentStatus.CUSTOMS_CLEARANCE, ShipmentStatus.DELIVERED],
-
       [ShipmentStatus.READY_FOR_DELIVERY, ShipmentStatus.ARRIVED],
-
       [ShipmentStatus.DELIVERED, ShipmentStatus.READY_FOR_DELIVERY],
     ])('rejects %s -> %s', (currentStatus, targetStatus) => {
       expect(isShipmentTransitionAllowed(currentStatus, targetStatus)).toBe(
         false,
       );
     });
+  });
+
+  it('returns exactly LOADED after DRAFT', () => {
+    expect(getAllowedShipmentTransitions(ShipmentStatus.DRAFT)).toEqual([
+      ShipmentStatus.LOADED,
+    ]);
+  });
+
+  it('returns exactly IN_TRANSIT after LOADED', () => {
+    expect(getAllowedShipmentTransitions(ShipmentStatus.LOADED)).toEqual([
+      ShipmentStatus.IN_TRANSIT,
+    ]);
   });
 
   it('returns exactly ARRIVED after IN_TRANSIT', () => {

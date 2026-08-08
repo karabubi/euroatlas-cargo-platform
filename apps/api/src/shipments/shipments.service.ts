@@ -490,6 +490,12 @@ export class ShipmentsService {
       );
     }
 
+    if (!isShipmentTransitionAllowed(shipment.status, dto.status)) {
+      throw new ConflictException(
+        'A shipment must follow the dispatch workflow from DRAFT to LOADED to IN_TRANSIT.',
+      );
+    }
+
     await this.assertReadyForStatus(id, dto.status);
 
     const departureTime = dto.departureTime

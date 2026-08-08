@@ -3,6 +3,10 @@ import { ShipmentStatus } from '../../generated/prisma/enums';
 export const SHIPMENT_WORKFLOW_TRANSITIONS: Readonly<
   Partial<Record<ShipmentStatus, readonly ShipmentStatus[]>>
 > = {
+  [ShipmentStatus.DRAFT]: [ShipmentStatus.LOADED],
+
+  [ShipmentStatus.LOADED]: [ShipmentStatus.IN_TRANSIT],
+
   [ShipmentStatus.IN_TRANSIT]: [ShipmentStatus.ARRIVED],
 
   [ShipmentStatus.ARRIVED]: [ShipmentStatus.CUSTOMS_CLEARANCE],
