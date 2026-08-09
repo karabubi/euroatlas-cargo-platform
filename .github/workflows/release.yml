@@ -1,0 +1,77 @@
+name: GitHub Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate release tag
+        run: |
+          pnpm release:tag:check -- \
+            "${GITHUB_REF_NAME}"
+
+      - name: Run release verification
+        run: pnpm release:check
+
+      - name: Build release bundle
+        run: pnpm release:bundle
+
+      - name: Verify release checksum
+        run: |
+          CHECKSUM_FILE="$(
+            find artifacts/release \
+              -maxdepth 1 \
+              -type f \
+              -name 'euroatlas-cargo-*.tar.gz.sha256' \
+              -print \
+              | sort \
+              | tail -1
+          )"
+
+          test -n "$CHECKSUM_FILE"
+
+          cd artifacts/release
+
+          shasum -a 256 \
+            -c \
+            "$(basename "$CHECKSUM_FILE")"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: EuroAtlas Cargo ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            artifacts/release/euroatlas-cargo-*.tar.gz
+            artifacts/release/euroatlas-cargo-*.tar.gz.sha256
+            artifacts/release/release-manifest.json
