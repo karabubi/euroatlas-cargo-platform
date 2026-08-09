@@ -5,8 +5,13 @@ import { AppModule } from './app.module';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
+  const corsOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:3000')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: corsOrigins,
     credentials: true,
   });
 
@@ -22,7 +27,7 @@ async function bootstrap(): Promise<void> {
 
   const port = Number(process.env.PORT) || 4000;
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
   Logger.log(
     `EuroAtlas Cargo API is running at http://localhost:${port}/api`,
