@@ -14,7 +14,8 @@
     "verify:web": "pnpm --dir apps/web run verify",
     "verify": "pnpm run verify:api && pnpm run verify:web",
     "release:check": "bash deploy/scripts/release-check.sh",
-    "production:preflight": "bash deploy/scripts/production-preflight.sh"
+    "production:preflight": "bash deploy/scripts/production-preflight.sh",
+    "release:manifest": "bash deploy/scripts/generate-release-manifest.sh"
   },
   "packageManager": "pnpm@10.34.5",
   "engines": {

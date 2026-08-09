@@ -59,3 +59,6 @@ deploy/production.env.local
 # Production database backups
 backups/postgres/
 *.sql.gz
+
+# Generated release artifacts
+artifacts/release/
