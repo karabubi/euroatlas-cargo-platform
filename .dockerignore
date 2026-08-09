@@ -1,0 +1,46 @@
+# Git
+.git
+.github
+
+# Dependencies
+node_modules
+**/node_modules
+
+# Build output
+.next
+**/.next
+dist
+**/dist
+coverage
+**/coverage
+
+# Local environment files
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+
+# Runtime uploads must never enter images
+uploads
+**/uploads
+
+# Backups and local audits
+backups
+**/*.backup
+**/*.before-*
+phase-*.txt
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / IDE
+.DS_Store
+.idea
+.vscode
+
+# Test artifacts
+test-results
+playwright-report

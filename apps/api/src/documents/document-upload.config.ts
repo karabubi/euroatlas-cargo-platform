@@ -13,8 +13,6 @@ const allowedMimeTypes = new Set([
 
 export const documentsUploadDirectory = join(
   process.cwd(),
-  'apps',
-  'api',
   'uploads',
   'documents',
 );
