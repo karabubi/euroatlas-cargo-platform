@@ -51,3 +51,7 @@ phase-*-audit.txt
 
 # Runtime uploads
 apps/api/uploads/
+
+# Production deployment secrets
+deploy/production.env
+deploy/production.env.local

@@ -1,0 +1,168 @@
+name: euroatlas-cargo-production
+
+services:
+  db:
+    image: postgres:18
+    container_name: euroatlas-production-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    networks:
+      - euroatlas
+
+
+  uploads-init:
+    image: alpine:3.22
+    container_name: euroatlas-production-uploads-init
+
+    user: "0:0"
+
+    volumes:
+      - api_uploads:/uploads
+
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        mkdir -p \
+          /uploads/documents \
+          /uploads/vehicle-photos
+        chown -R 1000:1000 /uploads
+        chmod -R u+rwX /uploads
+
+    restart: "no"
+
+    networks:
+      - euroatlas
+
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: builder
+
+    image: euroatlas-cargo-api-migrate:phase-43d
+    container_name: euroatlas-production-migrate
+
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+
+    command:
+      [
+        "pnpm",
+        "--dir",
+        "apps/api",
+        "exec",
+        "prisma",
+        "migrate",
+        "deploy"
+      ]
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    restart: "no"
+
+    networks:
+      - euroatlas
+
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+
+    image: euroatlas-cargo-api:phase-43d
+    container_name: euroatlas-production-api
+    restart: unless-stopped
+    init: true
+
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
+
+    ports:
+      - "${API_PORT:-4000}:4000"
+
+    volumes:
+      - api_uploads:/app/apps/api/uploads
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+      uploads-init:
+        condition: service_completed_successfully
+
+      migrate:
+        condition: service_completed_successfully
+
+    networks:
+      - euroatlas
+
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+
+    image: euroatlas-cargo-web:phase-43d
+    container_name: euroatlas-production-web
+    restart: unless-stopped
+    init: true
+
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
+    depends_on:
+      api:
+        condition: service_healthy
+
+    networks:
+      - euroatlas
+
+
+volumes:
+  postgres_data:
+    name: euroatlas-production-postgres-data
+
+  api_uploads:
+    name: euroatlas-production-api-uploads
+
+
+networks:
+  euroatlas:
+    name: euroatlas-production-network

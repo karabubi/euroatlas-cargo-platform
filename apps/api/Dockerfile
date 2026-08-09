@@ -2,6 +2,12 @@
 
 FROM node:20.19.0-bookworm-slim AS base
 
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    openssl \
+  && rm -rf /var/lib/apt/lists/*
+
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
@@ -52,6 +58,12 @@ RUN pnpm --dir apps/api build
 # ------------------------------------------------------------
 
 FROM node:20.19.0-bookworm-slim AS runner
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    openssl \
+  && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 ENV PORT=4000
