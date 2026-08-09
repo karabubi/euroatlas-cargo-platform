@@ -12,7 +12,9 @@
     "test:api:db": "pnpm --dir apps/api run test:db",
     "verify:api": "pnpm --dir apps/api run verify",
     "verify:web": "pnpm --dir apps/web run verify",
-    "verify": "pnpm run verify:api && pnpm run verify:web"
+    "verify": "pnpm run verify:api && pnpm run verify:web",
+    "release:check": "bash deploy/scripts/release-check.sh",
+    "production:preflight": "bash deploy/scripts/production-preflight.sh"
   },
   "packageManager": "pnpm@10.34.5",
   "engines": {

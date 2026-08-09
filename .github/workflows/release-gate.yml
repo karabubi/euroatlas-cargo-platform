@@ -1,0 +1,92 @@
+name: Release Gate
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "phase-*"
+
+  pull_request:
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-gate:
+    name: Release readiness
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate release configuration
+        env:
+          RELEASE_CHECK_STATIC_ONLY: "1"
+        run: pnpm release:check
+
+      - name: Build production API image
+        run: |
+          docker build \
+            --file apps/api/Dockerfile \
+            --tag euroatlas-cargo-api:ci \
+            .
+
+      - name: Build production Web image
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=http://localhost:4000/api \
+            --file apps/web/Dockerfile \
+            --tag euroatlas-cargo-web:ci \
+            .
+
+      - name: Verify API image runs non-root
+        run: |
+          USER_INFO="$(
+            docker run \
+              --rm \
+              --entrypoint=id \
+              euroatlas-cargo-api:ci
+          )"
+
+          echo "$USER_INFO"
+
+          echo "$USER_INFO" \
+            | grep -q 'uid=1000(node)'
+
+      - name: Verify Web image runs non-root
+        run: |
+          USER_INFO="$(
+            docker run \
+              --rm \
+              --entrypoint=id \
+              euroatlas-cargo-web:ci
+          )"
+
+          echo "$USER_INFO"
+
+          echo "$USER_INFO" \
+            | grep -q 'uid=1000(node)'
