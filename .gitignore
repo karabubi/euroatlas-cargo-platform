@@ -55,3 +55,7 @@ apps/api/uploads/
 # Production deployment secrets
 deploy/production.env
 deploy/production.env.local
+
+# Production database backups
+backups/postgres/
+*.sql.gz
