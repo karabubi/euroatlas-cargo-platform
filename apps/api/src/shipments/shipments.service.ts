@@ -2,10 +2,12 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 
 import { ShipmentStatus } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { ArrivalShipmentDto } from './dto/arrival-shipment.dto';
 import { CancelShipmentDto } from './dto/cancel-shipment.dto';
@@ -36,7 +38,69 @@ export class ShipmentsService {
     ShipmentStatus.CANCELLED,
   ]);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+
+    @Optional()
+    private readonly notifications?: NotificationsService,
+  ) {}
+
+  private async notifyShipmentStatusChange(shipmentId: string): Promise<void> {
+    if (!this.notifications) {
+      return;
+    }
+
+    const shipment = await this.prisma.shipment.findUnique({
+      where: {
+        id: shipmentId,
+      },
+
+      include: {
+        customer: true,
+      },
+    });
+
+    if (!shipment) {
+      return;
+    }
+
+    const customerName =
+      shipment.customer.companyName?.trim() ||
+      [shipment.customer.firstName, shipment.customer.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim() ||
+      'Customer';
+
+    const customerPhone =
+      shipment.customer.mobile?.trim() ||
+      shipment.customer.phone?.trim() ||
+      null;
+
+    const trackingBaseUrl = (
+      process.env.PUBLIC_TRACKING_URL ?? 'http://localhost:3000/track'
+    ).replace(/\/$/, '');
+
+    await this.notifications.sendShipmentTrackingUpdate({
+      shipmentId: shipment.id,
+      shipmentNo: shipment.shipmentNo,
+
+      // Until a separate public tracking token is added,
+      // shipmentNo is the public tracking reference.
+      trackingNumber: shipment.shipmentNo,
+
+      status: shipment.status,
+
+      customerName,
+      customerEmail: shipment.customer.email,
+
+      customerPhone,
+
+      trackingUrl: `${trackingBaseUrl}/${encodeURIComponent(
+        shipment.shipmentNo,
+      )}`,
+    });
+  }
 
   async create(createShipmentDto: CreateShipmentDto) {
     await this.ensureCustomerExists(createShipmentDto.customerId);
@@ -513,7 +577,7 @@ export class ShipmentsService {
       ? new Date(dto.departureTime)
       : new Date();
 
-    return this.prisma.$transaction(async (transaction) => {
+    const result = await this.prisma.$transaction(async (transaction) => {
       const updatedShipment = await transaction.shipment.update({
         where: {
           id,
@@ -553,6 +617,10 @@ export class ShipmentsService {
         dispatchedAt: departureTime,
       };
     });
+
+    await this.notifyShipmentStatusChange(id);
+
+    return result;
   }
 
   async markArrived(id: string, dto: ArrivalShipmentDto) {
@@ -583,7 +651,7 @@ export class ShipmentsService {
       ? new Date(dto.arrivalTime)
       : new Date();
 
-    return this.prisma.$transaction(async (transaction) => {
+    const result = await this.prisma.$transaction(async (transaction) => {
       const updatedShipment = await transaction.shipment.update({
         where: {
           id,
@@ -620,6 +688,10 @@ export class ShipmentsService {
         arrivedAt: arrivalTime,
       };
     });
+
+    await this.notifyShipmentStatusChange(id);
+
+    return result;
   }
 
   async startCustomsClearance(id: string, dto: CustomsClearanceShipmentDto) {
@@ -652,7 +724,7 @@ export class ShipmentsService {
 
     const customsStartedAt = new Date();
 
-    return this.prisma.$transaction(async (transaction) => {
+    const result = await this.prisma.$transaction(async (transaction) => {
       const updatedShipment = await transaction.shipment.update({
         where: {
           id,
@@ -693,6 +765,10 @@ export class ShipmentsService {
         customsStartedAt,
       };
     });
+
+    await this.notifyShipmentStatusChange(id);
+
+    return result;
   }
 
   async markReadyForDelivery(id: string, dto: ReadyForDeliveryShipmentDto) {
@@ -724,7 +800,7 @@ export class ShipmentsService {
 
     const readyAt = new Date();
 
-    return this.prisma.$transaction(async (transaction) => {
+    const result = await this.prisma.$transaction(async (transaction) => {
       const updatedShipment = await transaction.shipment.update({
         where: {
           id,
@@ -765,6 +841,10 @@ export class ShipmentsService {
         readyForDeliveryAt: readyAt,
       };
     });
+
+    await this.notifyShipmentStatusChange(id);
+
+    return result;
   }
 
   async cancel(
@@ -842,6 +922,8 @@ export class ShipmentsService {
       };
     });
 
+    await this.notifyShipmentStatusChange(id);
+
     return {
       message: 'Shipment cancelled successfully.',
 
@@ -878,7 +960,7 @@ export class ShipmentsService {
 
     const deliveredAt = new Date();
 
-    return this.prisma.$transaction(async (transaction) => {
+    const result = await this.prisma.$transaction(async (transaction) => {
       const updatedShipment = await transaction.shipment.update({
         where: {
           id,
@@ -928,6 +1010,10 @@ export class ShipmentsService {
         deliveredAt,
       };
     });
+
+    await this.notifyShipmentStatusChange(id);
+
+    return result;
   }
 
   async update(id: string, updateShipmentDto: UpdateShipmentDto) {

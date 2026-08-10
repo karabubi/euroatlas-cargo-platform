@@ -38,6 +38,14 @@ export class TrackingController {
     return this.trackingService.findByShipment(shipmentId);
   }
 
+  @Get('public/:shipmentNo')
+  findPublicByShipmentNo(
+    @Param('shipmentNo')
+    shipmentNo: string,
+  ) {
+    return this.trackingService.findPublicByShipmentNo(shipmentNo);
+  }
+
   @Get(':id')
   findOne(
     @Param('id', new ParseUUIDPipe())

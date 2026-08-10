@@ -81,6 +81,65 @@ export class TrackingService {
     };
   }
 
+  async findPublicByShipmentNo(shipmentNo: string) {
+    const normalized = shipmentNo.trim();
+
+    if (!normalized) {
+      throw new BadRequestException('Shipment number is required.');
+    }
+
+    const shipment = await this.prisma.shipment.findUnique({
+      where: {
+        shipmentNo: normalized,
+      },
+
+      select: {
+        shipmentNo: true,
+        status: true,
+
+        originCountry: true,
+        originCity: true,
+        originPort: true,
+
+        destinationCountry: true,
+        destinationCity: true,
+        destinationPort: true,
+
+        bookingReference: true,
+        containerNumber: true,
+        shippingLine: true,
+        vesselName: true,
+        voyageNumber: true,
+
+        estimatedDeparture: true,
+        actualDeparture: true,
+        estimatedArrival: true,
+        actualArrival: true,
+
+        tracking: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+
+          select: {
+            eventType: true,
+            status: true,
+            title: true,
+            description: true,
+            location: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment tracking information not found.');
+    }
+
+    return shipment;
+  }
+
   async findOne(id: string) {
     const trackingEvent = await this.prisma.shipmentTracking.findUnique({
       where: {
