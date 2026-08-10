@@ -21,7 +21,10 @@
     "server:preflight": "bash deploy/scripts/server-preflight.sh",
     "server:env:check": "bash deploy/scripts/validate-production-env.sh",
     "server:deploy:first": "bash deploy/scripts/first-deploy.sh",
-    "server:state:capture": "bash deploy/scripts/capture-deployment-state.sh"
+    "server:state:capture": "bash deploy/scripts/capture-deployment-state.sh",
+    "server:upgrade": "bash deploy/scripts/upgrade-release.sh",
+    "server:rollback": "bash deploy/scripts/rollback-release.sh",
+    "server:db:restore": "bash deploy/scripts/restore-production-backup.sh"
   },
   "packageManager": "pnpm@10.34.5",
   "engines": {
