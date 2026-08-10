@@ -56,7 +56,7 @@ jobs:
           ref: ${{ env.RELEASE_TAG }}
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.34.5
           run_install: false
