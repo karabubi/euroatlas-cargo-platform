@@ -23,7 +23,9 @@
     "test:all": "pnpm run test:unit && pnpm run test:e2e && pnpm run test:db",
     "typecheck": "tsc --noEmit",
     "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\"",
-    "verify": "pnpm run test:all && pnpm run typecheck && pnpm run lint:check && pnpm run build"
+    "verify": "pnpm run test:all && pnpm run typecheck && pnpm run lint:check && pnpm run build",
+    "email:smtp:check": "node scripts/smtp-check.mjs",
+    "email:tracking:test": "ts-node --transpile-only scripts/send-tracking-email-test.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

@@ -65,3 +65,6 @@ artifacts/release/
 
 # Generated deployment state
 deploy/state/
+
+# Local email / SMTP credentials
+apps/api/.env.email.local

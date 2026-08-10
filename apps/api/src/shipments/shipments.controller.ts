@@ -36,6 +36,14 @@ export class ShipmentsController {
     return this.shipmentsService.findAll(search, status);
   }
 
+  @Post(':id/notifications/email')
+  sendTrackingEmail(
+    @Param('id')
+    id: string,
+  ) {
+    return this.shipmentsService.sendTrackingEmail(id);
+  }
+
   @Post(':id/cancel')
   cancel(@Param('id') id: string, @Body() dto: CancelShipmentDto) {
     return this.shipmentsService.cancel(id, dto);

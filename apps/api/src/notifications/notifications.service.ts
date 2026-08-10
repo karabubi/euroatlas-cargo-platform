@@ -16,6 +16,12 @@ export class NotificationsService {
     private readonly whatsapp: WhatsAppNotificationProvider,
   ) {}
 
+  async sendShipmentTrackingEmail(
+    notification: ShipmentTrackingNotification,
+  ): Promise<boolean> {
+    return this.email.sendShipmentUpdate(notification);
+  }
+
   async sendShipmentTrackingUpdate(
     notification: ShipmentTrackingNotification,
   ): Promise<void> {

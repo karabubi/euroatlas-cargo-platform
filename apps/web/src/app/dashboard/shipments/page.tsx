@@ -1,15 +1,16 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
+import Link from "next/link";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
-import { apiFetch } from '@/lib/api';
+import { apiFetch } from "@/lib/api";
 import {
   formatShipmentStatus,
   shipmentStatusBadgeClass,
-} from '@/lib/shipment-status-ui';
-import type { ShipmentStatus } from '@/types/shipment';
+} from "@/lib/shipment-status-ui";
+import type { ShipmentStatus } from "@/types/shipment";
+import { TrackShipmentButton } from "@/components/shipment/track-shipment-button";
 
 type Customer = {
   id: string;
@@ -58,19 +59,19 @@ type ShipmentForm = {
 };
 
 const initialForm: ShipmentForm = {
-  shipmentNo: '',
-  customerId: '',
-  bookingReference: '',
-  containerNumber: '',
-  originCountry: '',
-  originCity: '',
-  destinationCountry: '',
-  destinationCity: '',
-  status: 'DRAFT',
-  estimatedDeparture: '',
-  actualDeparture: '',
-  estimatedArrival: '',
-  actualArrival: '',
+  shipmentNo: "",
+  customerId: "",
+  bookingReference: "",
+  containerNumber: "",
+  originCountry: "",
+  originCity: "",
+  destinationCountry: "",
+  destinationCity: "",
+  status: "DRAFT",
+  estimatedDeparture: "",
+  actualDeparture: "",
+  estimatedArrival: "",
+  actualArrival: "",
 };
 
 function getCustomerName(customer: Customer) {
@@ -83,31 +84,31 @@ function getCustomerName(customer: Customer) {
 
 function formatDate(value?: string | null) {
   if (!value) {
-    return '—';
+    return "—";
   }
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return '—';
+    return "—";
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
+  return new Intl.DateTimeFormat("en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
   }).format(date);
 }
 
 function toDateInput(value?: string | null) {
   if (!value) {
-    return '';
+    return "";
   }
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return '';
+    return "";
   }
 
   return date.toISOString().slice(0, 10);
@@ -129,46 +130,45 @@ export default function ShipmentsPage() {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
 
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   const [form, setForm] = useState<ShipmentForm>(initialForm);
   const [editingShipment, setEditingShipment] = useState<Shipment | null>(null);
-  const [shipmentToDelete, setShipmentToDelete] =
-    useState<Shipment | null>(null);
+  const [shipmentToDelete, setShipmentToDelete] = useState<Shipment | null>(
+    null,
+  );
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const loadShipments = useCallback(async () => {
     setIsLoading(true);
-    setError('');
+    setError("");
 
     try {
       const params = new URLSearchParams();
 
       if (search.trim()) {
-        params.set('search', search.trim());
+        params.set("search", search.trim());
       }
 
       if (statusFilter.trim()) {
-        params.set('status', statusFilter.trim());
+        params.set("status", statusFilter.trim());
       }
 
       const query = params.toString();
       const data = await apiFetch<Shipment[]>(
-        `/shipments${query ? `?${query}` : ''}`,
+        `/shipments${query ? `?${query}` : ""}`,
       );
 
       setShipments(data);
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError, 'Shipments could not be loaded.'),
-      );
+      setError(getErrorMessage(requestError, "Shipments could not be loaded."));
     } finally {
       setIsLoading(false);
     }
@@ -179,7 +179,7 @@ export default function ShipmentsPage() {
 
     async function fetchCustomers() {
       try {
-        const data = await apiFetch<Customer[]>('/customers');
+        const data = await apiFetch<Customer[]>("/customers");
 
         if (isCancelled) {
           return;
@@ -203,7 +203,7 @@ export default function ShipmentsPage() {
         }
 
         setError(
-          getErrorMessage(requestError, 'Customers could not be loaded.'),
+          getErrorMessage(requestError, "Customers could not be loaded."),
         );
       }
     }
@@ -236,35 +236,35 @@ export default function ShipmentsPage() {
     setEditingShipment(null);
     setForm({
       ...initialForm,
-      customerId: customers[0]?.id ?? '',
+      customerId: customers[0]?.id ?? "",
     });
   }
 
   function openCreateForm() {
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
     resetForm();
 
     document
-      .getElementById('shipment-form')
-      ?.scrollIntoView({ behavior: 'smooth' });
+      .getElementById("shipment-form")
+      ?.scrollIntoView({ behavior: "smooth" });
   }
 
   function openEditForm(shipment: Shipment) {
     setEditingShipment(shipment);
-    setSuccess('');
-    setError('');
+    setSuccess("");
+    setError("");
 
     setForm({
       shipmentNo: shipment.shipmentNo,
       customerId: shipment.customerId,
-      bookingReference: shipment.bookingReference ?? '',
-      containerNumber: shipment.containerNumber ?? '',
-      originCountry: shipment.originCountry ?? '',
-      originCity: shipment.originCity ?? '',
-      destinationCountry: shipment.destinationCountry ?? '',
-      destinationCity: shipment.destinationCity ?? '',
-      status: shipment.status ?? 'DRAFT',
+      bookingReference: shipment.bookingReference ?? "",
+      containerNumber: shipment.containerNumber ?? "",
+      originCountry: shipment.originCountry ?? "",
+      originCity: shipment.originCity ?? "",
+      destinationCountry: shipment.destinationCountry ?? "",
+      destinationCity: shipment.destinationCity ?? "",
+      status: shipment.status ?? "DRAFT",
       estimatedDeparture: toDateInput(shipment.estimatedDeparture),
       actualDeparture: toDateInput(shipment.actualDeparture),
       estimatedArrival: toDateInput(shipment.estimatedArrival),
@@ -272,8 +272,8 @@ export default function ShipmentsPage() {
     });
 
     document
-      .getElementById('shipment-form')
-      ?.scrollIntoView({ behavior: 'smooth' });
+      .getElementById("shipment-form")
+      ?.scrollIntoView({ behavior: "smooth" });
   }
 
   function updateForm<K extends keyof ShipmentForm>(
@@ -289,16 +289,16 @@ export default function ShipmentsPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
 
     if (!form.shipmentNo.trim()) {
-      setError('Shipment number is required.');
+      setError("Shipment number is required.");
       return;
     }
 
     if (!form.customerId) {
-      setError('Please select a customer.');
+      setError("Please select a customer.");
       return;
     }
 
@@ -313,9 +313,7 @@ export default function ShipmentsPage() {
       originCity: form.originCity.trim() || undefined,
       destinationCountry: form.destinationCountry.trim(),
       destinationCity: form.destinationCity.trim() || undefined,
-      ...(!editingShipment
-        ? { status: form.status.trim() || 'DRAFT' }
-        : {}),
+      ...(!editingShipment ? { status: form.status.trim() || "DRAFT" } : {}),
       estimatedDeparture: dateToIso(form.estimatedDeparture),
       actualDeparture: dateToIso(form.actualDeparture),
       estimatedArrival: dateToIso(form.estimatedArrival),
@@ -325,14 +323,14 @@ export default function ShipmentsPage() {
     try {
       if (editingShipment) {
         await apiFetch<Shipment>(`/shipments/${editingShipment.id}`, {
-          method: 'PATCH',
+          method: "PATCH",
           body: JSON.stringify(payload),
         });
 
         setSuccess(`Shipment ${form.shipmentNo} was updated successfully.`);
       } else {
-        await apiFetch<Shipment>('/shipments', {
-          method: 'POST',
+        await apiFetch<Shipment>("/shipments", {
+          method: "POST",
           body: JSON.stringify(payload),
         });
 
@@ -343,7 +341,7 @@ export default function ShipmentsPage() {
       await loadShipments();
     } catch (requestError) {
       setError(
-        getErrorMessage(requestError, 'The shipment could not be saved.'),
+        getErrorMessage(requestError, "The shipment could not be saved."),
       );
     } finally {
       setIsSaving(false);
@@ -356,12 +354,12 @@ export default function ShipmentsPage() {
     }
 
     setIsDeleting(true);
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
 
     try {
       await apiFetch<Shipment>(`/shipments/${shipmentToDelete.id}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
 
       setSuccess(
@@ -372,7 +370,7 @@ export default function ShipmentsPage() {
       await loadShipments();
     } catch (requestError) {
       setError(
-        getErrorMessage(requestError, 'The shipment could not be deleted.'),
+        getErrorMessage(requestError, "The shipment could not be deleted."),
       );
     } finally {
       setIsDeleting(false);
@@ -387,9 +385,7 @@ export default function ShipmentsPage() {
             Logistics
           </p>
 
-          <h1 className="mt-2 text-3xl font-bold text-slate-950">
-            Shipments
-          </h1>
+          <h1 className="mt-2 text-3xl font-bold text-slate-950">Shipments</h1>
 
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
             Create, update, search and manage cargo shipments.
@@ -423,7 +419,7 @@ export default function ShipmentsPage() {
       >
         <div className="mb-6">
           <h2 className="text-xl font-bold text-slate-950">
-            {editingShipment ? 'Edit shipment' : 'Create shipment'}
+            {editingShipment ? "Edit shipment" : "Create shipment"}
           </h2>
 
           <p className="mt-1 text-sm text-slate-600">
@@ -447,7 +443,7 @@ export default function ShipmentsPage() {
                   required
                   value={form.shipmentNo}
                   onChange={(event) =>
-                    updateForm('shipmentNo', event.target.value)
+                    updateForm("shipmentNo", event.target.value)
                   }
                   placeholder="EAC-2026-0001"
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-950"
@@ -463,7 +459,7 @@ export default function ShipmentsPage() {
                   required
                   value={form.customerId}
                   onChange={(event) =>
-                    updateForm('customerId', event.target.value)
+                    updateForm("customerId", event.target.value)
                   }
                   className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-950"
                 >
@@ -485,7 +481,7 @@ export default function ShipmentsPage() {
                 <input
                   value={form.bookingReference}
                   onChange={(event) =>
-                    updateForm('bookingReference', event.target.value)
+                    updateForm("bookingReference", event.target.value)
                   }
                   placeholder="BOOK-123456"
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-950"
@@ -500,7 +496,7 @@ export default function ShipmentsPage() {
                 <input
                   value={form.containerNumber}
                   onChange={(event) =>
-                    updateForm('containerNumber', event.target.value)
+                    updateForm("containerNumber", event.target.value)
                   }
                   placeholder="MSCU1234567"
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm uppercase outline-none transition focus:border-slate-950"
@@ -517,7 +513,7 @@ export default function ShipmentsPage() {
                   maxLength={100}
                   value={form.originCountry}
                   onChange={(event) =>
-                    updateForm('originCountry', event.target.value)
+                    updateForm("originCountry", event.target.value)
                   }
                   placeholder="Germany"
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-950"
@@ -533,7 +529,7 @@ export default function ShipmentsPage() {
                   maxLength={100}
                   value={form.originCity}
                   onChange={(event) =>
-                    updateForm('originCity', event.target.value)
+                    updateForm("originCity", event.target.value)
                   }
                   placeholder="Hamburg"
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-950"
@@ -550,7 +546,7 @@ export default function ShipmentsPage() {
                   maxLength={100}
                   value={form.destinationCountry}
                   onChange={(event) =>
-                    updateForm('destinationCountry', event.target.value)
+                    updateForm("destinationCountry", event.target.value)
                   }
                   placeholder="Libya"
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-950"
@@ -565,7 +561,7 @@ export default function ShipmentsPage() {
                 <input
                   value={form.destinationCity}
                   onChange={(event) =>
-                    updateForm('destinationCity', event.target.value)
+                    updateForm("destinationCity", event.target.value)
                   }
                   placeholder="Tripoli"
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-950"
@@ -581,7 +577,7 @@ export default function ShipmentsPage() {
                   value={form.status}
                   disabled={Boolean(editingShipment)}
                   onChange={(event) =>
-                    updateForm('status', event.target.value.toUpperCase())
+                    updateForm("status", event.target.value.toUpperCase())
                   }
                   placeholder="DRAFT"
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm uppercase outline-none transition focus:border-slate-950"
@@ -589,8 +585,8 @@ export default function ShipmentsPage() {
 
                 <span className="block text-xs text-slate-500">
                   {editingShipment
-                    ? 'Status changes use the controlled shipment workflow.'
-                    : 'New shipments start in the selected pre-operational status.'}
+                    ? "Status changes use the controlled shipment workflow."
+                    : "New shipments start in the selected pre-operational status."}
                 </span>
               </label>
             </div>
@@ -610,7 +606,7 @@ export default function ShipmentsPage() {
                     type="date"
                     value={form.estimatedDeparture}
                     onChange={(event) =>
-                      updateForm('estimatedDeparture', event.target.value)
+                      updateForm("estimatedDeparture", event.target.value)
                     }
                     className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-950"
                   />
@@ -625,7 +621,7 @@ export default function ShipmentsPage() {
                     type="date"
                     value={form.actualDeparture}
                     onChange={(event) =>
-                      updateForm('actualDeparture', event.target.value)
+                      updateForm("actualDeparture", event.target.value)
                     }
                     className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-950"
                   />
@@ -640,7 +636,7 @@ export default function ShipmentsPage() {
                     type="date"
                     value={form.estimatedArrival}
                     onChange={(event) =>
-                      updateForm('estimatedArrival', event.target.value)
+                      updateForm("estimatedArrival", event.target.value)
                     }
                     className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-950"
                   />
@@ -655,7 +651,7 @@ export default function ShipmentsPage() {
                     type="date"
                     value={form.actualArrival}
                     onChange={(event) =>
-                      updateForm('actualArrival', event.target.value)
+                      updateForm("actualArrival", event.target.value)
                     }
                     className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-950"
                   />
@@ -670,10 +666,10 @@ export default function ShipmentsPage() {
                 className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSaving
-                  ? 'Saving...'
+                  ? "Saving..."
                   : editingShipment
-                    ? 'Update shipment'
-                    : 'Create shipment'}
+                    ? "Update shipment"
+                    : "Create shipment"}
               </button>
 
               {editingShipment ? (
@@ -701,7 +697,7 @@ export default function ShipmentsPage() {
 
               <p className="mt-1 text-sm text-slate-600">
                 {shipments.length} shipment
-                {shipments.length === 1 ? '' : 's'} found
+                {shipments.length === 1 ? "" : "s"} found
               </p>
             </div>
 
@@ -743,9 +739,7 @@ export default function ShipmentsPage() {
           </div>
         ) : shipments.length === 0 ? (
           <div className="p-10 text-center">
-            <h3 className="font-bold text-slate-950">
-              No shipments found
-            </h3>
+            <h3 className="font-bold text-slate-950">No shipments found</h3>
 
             <p className="mt-2 text-sm text-slate-600">
               Create your first shipment or change the search filters.
@@ -757,14 +751,14 @@ export default function ShipmentsPage() {
               <thead className="bg-slate-50">
                 <tr>
                   {[
-                    'Shipment',
-                    'Customer',
-                    'Container',
-                    'Destination',
-                    'Status',
-                    'Departure',
-                    'Arrival',
-                    'Actions',
+                    "Shipment",
+                    "Customer",
+                    "Container",
+                    "Destination",
+                    "Status",
+                    "Departure",
+                    "Arrival",
+                    "Actions",
                   ].map((heading) => (
                     <th
                       key={heading}
@@ -785,16 +779,22 @@ export default function ShipmentsPage() {
                           {shipment.shipmentNo}
                         </p>
 
-                        <Link
-                          href={`/dashboard/shipments/${shipment.id}`}
-                          className="inline-flex rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-sky-700"
-                        >
-                          View details & upload
-                        </Link>
+                        <div className="flex flex-wrap gap-2">
+                          <Link
+                            href={`/dashboard/shipments/${shipment.id}`}
+                            className="inline-flex rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-sky-700"
+                          >
+                            View details & upload
+                          </Link>
+
+                          <TrackShipmentButton
+                            shipmentNo={shipment.shipmentNo}
+                          />
+                        </div>
                       </div>
 
                       <p className="mt-1 text-xs text-slate-500">
-                        {shipment.bookingReference || 'No booking reference'}
+                        {shipment.bookingReference || "No booking reference"}
                       </p>
                     </td>
 
@@ -803,13 +803,13 @@ export default function ShipmentsPage() {
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-700">
-                      {shipment.containerNumber || '—'}
+                      {shipment.containerNumber || "—"}
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-700">
                       {[shipment.destinationCity, shipment.destinationCountry]
                         .filter(Boolean)
-                        .join(', ') || '—'}
+                        .join(", ") || "—"}
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4">
@@ -824,8 +824,7 @@ export default function ShipmentsPage() {
 
                     <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-700">
                       {formatDate(
-                        shipment.actualDeparture ??
-                          shipment.estimatedDeparture,
+                        shipment.actualDeparture ?? shipment.estimatedDeparture,
                       )}
                     </td>
 
@@ -870,9 +869,9 @@ export default function ShipmentsPage() {
             </h2>
 
             <p className="mt-3 text-sm text-slate-600">
-              Are you sure you want to delete shipment{' '}
-              <strong>{shipmentToDelete.shipmentNo}</strong>? This action
-              cannot be undone.
+              Are you sure you want to delete shipment{" "}
+              <strong>{shipmentToDelete.shipmentNo}</strong>? This action cannot
+              be undone.
             </p>
 
             <div className="mt-6 flex justify-end gap-3">
@@ -891,7 +890,7 @@ export default function ShipmentsPage() {
                 disabled={isDeleting}
                 className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
               >
-                {isDeleting ? 'Deleting...' : 'Delete shipment'}
+                {isDeleting ? "Deleting..." : "Delete shipment"}
               </button>
             </div>
           </div>

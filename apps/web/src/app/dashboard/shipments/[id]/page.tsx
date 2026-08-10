@@ -13,6 +13,7 @@ import {
   shipmentStatusBadgeClass,
 } from "@/lib/shipment-status-ui";
 import type { ShipmentStatus } from "@/types/shipment";
+import { TrackShipmentButton } from "@/components/shipment/track-shipment-button";
 
 type Customer = {
   id: string;
@@ -93,6 +94,16 @@ export default function ShipmentDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [sendingTrackingEmail, setSendingTrackingEmail] = useState(false);
+
+  const [trackingEmailMessage, setTrackingEmailMessage] = useState<
+    string | null
+  >(null);
+
+  const [trackingEmailError, setTrackingEmailError] = useState<string | null>(
+    null,
+  );
+
   useEffect(() => {
     let isCancelled = false;
 
@@ -126,6 +137,38 @@ export default function ShipmentDetailsPage() {
       isCancelled = true;
     };
   }, [shipmentId]);
+
+  async function handleSendTrackingEmail() {
+    if (!shipment) {
+      return;
+    }
+
+    setSendingTrackingEmail(true);
+    setTrackingEmailMessage(null);
+    setTrackingEmailError(null);
+
+    try {
+      const result = await apiFetch<{
+        message: string;
+        recipient: string;
+        status: string;
+      }>(`/shipments/${shipment.id}/notifications/email`, {
+        method: "POST",
+      });
+
+      setTrackingEmailMessage(
+        `${result.message} Recipient: ${result.recipient}`,
+      );
+    } catch (error) {
+      setTrackingEmailError(
+        error instanceof Error
+          ? error.message
+          : "Tracking email could not be sent.",
+      );
+    } finally {
+      setSendingTrackingEmail(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -169,12 +212,42 @@ export default function ShipmentDetailsPage() {
           </p>
         </div>
 
-        <Link
-          href="/dashboard/shipments"
-          className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-center font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          Back to Shipments
-        </Link>
+        <div className="flex flex-col items-end gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <TrackShipmentButton
+              shipmentNo={shipment.shipmentNo}
+              variant="primary"
+            />
+
+            <button
+              type="button"
+              onClick={handleSendTrackingEmail}
+              disabled={sendingTrackingEmail}
+              className="inline-flex items-center justify-center rounded-xl bg-sky-600 px-5 py-3 font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {sendingTrackingEmail ? "Sending..." : "Send Tracking Email"}
+            </button>
+
+            <Link
+              href="/dashboard/shipments"
+              className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-center font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Back to Shipments
+            </Link>
+          </div>
+
+          {trackingEmailMessage ? (
+            <div className="max-w-xl rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+              {trackingEmailMessage}
+            </div>
+          ) : null}
+
+          {trackingEmailError ? (
+            <div className="max-w-xl rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
+              {trackingEmailError}
+            </div>
+          ) : null}
+        </div>
       </header>
 
       <section className="grid gap-6 md:grid-cols-3">
