@@ -24,7 +24,9 @@
     "server:state:capture": "bash deploy/scripts/capture-deployment-state.sh",
     "server:upgrade": "bash deploy/scripts/upgrade-release.sh",
     "server:rollback": "bash deploy/scripts/rollback-release.sh",
-    "server:db:restore": "bash deploy/scripts/restore-production-backup.sh"
+    "server:db:restore": "bash deploy/scripts/restore-production-backup.sh",
+    "server:smoke": "bash deploy/scripts/production-smoke-test.sh",
+    "server:verify:postdeploy": "bash deploy/scripts/post-deploy-verify.sh"
   },
   "packageManager": "pnpm@10.34.5",
   "engines": {
