@@ -26,6 +26,44 @@ describe('Public shipment tracking', () => {
     );
   });
 
+  it('rejects excessively long shipment numbers', async () => {
+    const { service } = createService(null);
+
+    await expect(
+      service.findPublicByShipmentNo('A'.repeat(65)),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects malformed shipment numbers', async () => {
+    const { service } = createService(null);
+
+    await expect(
+      service.findPublicByShipmentNo('EAC/2026/0001'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('normalizes public shipment numbers', async () => {
+    const shipment = {
+      shipmentNo: 'EAC-2026-0001',
+
+      status: 'IN_TRANSIT',
+
+      tracking: [],
+    };
+
+    const { service, prisma } = createService(shipment);
+
+    await service.findPublicByShipmentNo(' eac-2026-0001 ');
+
+    expect(prisma.shipment.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          shipmentNo: 'EAC-2026-0001',
+        },
+      }),
+    );
+  });
+
   it('returns only public shipment tracking information', async () => {
     const shipment = {
       shipmentNo: 'EAC-2026-0001',

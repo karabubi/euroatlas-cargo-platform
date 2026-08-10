@@ -82,10 +82,18 @@ export class TrackingService {
   }
 
   async findPublicByShipmentNo(shipmentNo: string) {
-    const normalized = shipmentNo.trim();
+    const normalized = shipmentNo.trim().toUpperCase();
 
     if (!normalized) {
       throw new BadRequestException('Shipment number is required.');
+    }
+
+    if (normalized.length > 64) {
+      throw new BadRequestException('Shipment number is too long.');
+    }
+
+    if (!/^[A-Z0-9][A-Z0-9_-]*$/.test(normalized)) {
+      throw new BadRequestException('Shipment number has an invalid format.');
     }
 
     const shipment = await this.prisma.shipment.findUnique({

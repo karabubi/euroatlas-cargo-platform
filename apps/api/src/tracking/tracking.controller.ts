@@ -7,7 +7,10 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
+
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 
 import { CreateTrackingDto } from './dto/create-tracking.dto';
 import { UpdateTrackingDto } from './dto/update-tracking.dto';
@@ -39,6 +42,13 @@ export class TrackingController {
   }
 
   @Get('public/:shipmentNo')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({
+    publicTracking: {
+      limit: 20,
+      ttl: 60_000,
+    },
+  })
   findPublicByShipmentNo(
     @Param('shipmentNo')
     shipmentNo: string,
