@@ -62,3 +62,6 @@ backups/postgres/
 
 # Generated release artifacts
 artifacts/release/
+
+# Generated deployment state
+deploy/state/

@@ -18,7 +18,10 @@
     "release:manifest": "bash deploy/scripts/generate-release-manifest.sh",
     "release:tag:check": "bash deploy/scripts/validate-release-tag.sh",
     "release:bundle": "bash deploy/scripts/create-release-bundle.sh",
-    "server:preflight": "bash deploy/scripts/server-preflight.sh"
+    "server:preflight": "bash deploy/scripts/server-preflight.sh",
+    "server:env:check": "bash deploy/scripts/validate-production-env.sh",
+    "server:deploy:first": "bash deploy/scripts/first-deploy.sh",
+    "server:state:capture": "bash deploy/scripts/capture-deployment-state.sh"
   },
   "packageManager": "pnpm@10.34.5",
   "engines": {
