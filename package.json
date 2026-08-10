@@ -17,7 +17,8 @@
     "production:preflight": "bash deploy/scripts/production-preflight.sh",
     "release:manifest": "bash deploy/scripts/generate-release-manifest.sh",
     "release:tag:check": "bash deploy/scripts/validate-release-tag.sh",
-    "release:bundle": "bash deploy/scripts/create-release-bundle.sh"
+    "release:bundle": "bash deploy/scripts/create-release-bundle.sh",
+    "server:preflight": "bash deploy/scripts/server-preflight.sh"
   },
   "packageManager": "pnpm@10.34.5",
   "engines": {
