@@ -68,3 +68,6 @@ deploy/state/
 
 # Local email / SMTP credentials
 apps/api/.env.email.local
+
+# Local WhatsApp credentials
+apps/api/.env.whatsapp.local

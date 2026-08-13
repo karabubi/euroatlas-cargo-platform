@@ -104,6 +104,16 @@ export default function ShipmentDetailsPage() {
     null,
   );
 
+  const [sendingTrackingWhatsApp, setSendingTrackingWhatsApp] = useState(false);
+
+  const [trackingWhatsAppMessage, setTrackingWhatsAppMessage] = useState<
+    string | null
+  >(null);
+
+  const [trackingWhatsAppError, setTrackingWhatsAppError] = useState<
+    string | null
+  >(null);
+
   useEffect(() => {
     let isCancelled = false;
 
@@ -137,6 +147,38 @@ export default function ShipmentDetailsPage() {
       isCancelled = true;
     };
   }, [shipmentId]);
+
+  async function handleSendTrackingWhatsApp() {
+    if (!shipment) {
+      return;
+    }
+
+    setSendingTrackingWhatsApp(true);
+    setTrackingWhatsAppMessage(null);
+    setTrackingWhatsAppError(null);
+
+    try {
+      const result = await apiFetch<{
+        message: string;
+        recipient: string;
+        status: string;
+      }>(`/shipments/${shipment.id}/notifications/whatsapp`, {
+        method: "POST",
+      });
+
+      setTrackingWhatsAppMessage(
+        `${result.message} Recipient: ${result.recipient}`,
+      );
+    } catch (error) {
+      setTrackingWhatsAppError(
+        error instanceof Error
+          ? error.message
+          : "Tracking WhatsApp message could not be sent.",
+      );
+    } finally {
+      setSendingTrackingWhatsApp(false);
+    }
+  }
 
   async function handleSendTrackingEmail() {
     if (!shipment) {
@@ -228,6 +270,17 @@ export default function ShipmentDetailsPage() {
               {sendingTrackingEmail ? "Sending..." : "Send Tracking Email"}
             </button>
 
+            <button
+              type="button"
+              onClick={handleSendTrackingWhatsApp}
+              disabled={sendingTrackingWhatsApp}
+              className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {sendingTrackingWhatsApp
+                ? "Sending WhatsApp..."
+                : "Send Tracking WhatsApp"}
+            </button>
+
             <Link
               href="/dashboard/shipments"
               className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-center font-semibold text-slate-700 hover:bg-slate-50"
@@ -235,6 +288,18 @@ export default function ShipmentDetailsPage() {
               Back to Shipments
             </Link>
           </div>
+
+          {trackingWhatsAppMessage ? (
+            <div className="max-w-xl rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+              {trackingWhatsAppMessage}
+            </div>
+          ) : null}
+
+          {trackingWhatsAppError ? (
+            <div className="max-w-xl rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
+              {trackingWhatsAppError}
+            </div>
+          ) : null}
 
           {trackingEmailMessage ? (
             <div className="max-w-xl rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">

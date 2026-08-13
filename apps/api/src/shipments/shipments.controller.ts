@@ -36,6 +36,14 @@ export class ShipmentsController {
     return this.shipmentsService.findAll(search, status);
   }
 
+  @Post(':id/notifications/whatsapp')
+  sendTrackingWhatsApp(
+    @Param('id')
+    id: string,
+  ) {
+    return this.shipmentsService.sendTrackingWhatsApp(id);
+  }
+
   @Post(':id/notifications/email')
   sendTrackingEmail(
     @Param('id')

@@ -180,6 +180,83 @@ export class ShipmentsService {
     };
   }
 
+  async sendTrackingWhatsApp(shipmentId: string) {
+    if (!this.notifications) {
+      throw new BadRequestException('Notification service is unavailable.');
+    }
+
+    const shipment = await this.prisma.shipment.findUnique({
+      where: {
+        id: shipmentId,
+      },
+
+      include: {
+        customer: true,
+      },
+    });
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found.');
+    }
+
+    const customerPhone =
+      shipment.customer.mobile?.trim() || shipment.customer.phone?.trim();
+
+    if (!customerPhone) {
+      throw new BadRequestException(
+        'This customer does not have a mobile or phone number.',
+      );
+    }
+
+    const customerName =
+      shipment.customer.companyName?.trim() ||
+      [shipment.customer.firstName, shipment.customer.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim() ||
+      'Customer';
+
+    const trackingBaseUrl = (
+      process.env.PUBLIC_TRACKING_URL ?? 'http://localhost:3000/track'
+    ).replace(/\/$/, '');
+
+    const sent = await this.notifications.sendShipmentTrackingWhatsApp({
+      shipmentId: shipment.id,
+
+      shipmentNo: shipment.shipmentNo,
+
+      trackingNumber: shipment.shipmentNo,
+
+      status: shipment.status,
+
+      customerName,
+
+      customerEmail: shipment.customer.email,
+
+      customerPhone,
+
+      trackingUrl: `${trackingBaseUrl}/${encodeURIComponent(
+        shipment.shipmentNo,
+      )}`,
+    });
+
+    if (!sent) {
+      throw new BadRequestException(
+        'Tracking WhatsApp message could not be sent.',
+      );
+    }
+
+    return {
+      message: 'Tracking WhatsApp message sent successfully.',
+
+      shipmentNo: shipment.shipmentNo,
+
+      recipient: customerPhone,
+
+      status: shipment.status,
+    };
+  }
+
   async create(createShipmentDto: CreateShipmentDto) {
     await this.ensureCustomerExists(createShipmentDto.customerId);
 

@@ -22,6 +22,12 @@ export class NotificationsService {
     return this.email.sendShipmentUpdate(notification);
   }
 
+  async sendShipmentTrackingWhatsApp(
+    notification: ShipmentTrackingNotification,
+  ): Promise<boolean> {
+    return this.whatsapp.sendShipmentUpdate(notification);
+  }
+
   async sendShipmentTrackingUpdate(
     notification: ShipmentTrackingNotification,
   ): Promise<void> {

@@ -6,6 +6,41 @@ import type { ShipmentTrackingNotification } from '../notification.types';
 export class WhatsAppNotificationProvider {
   private readonly logger = new Logger(WhatsAppNotificationProvider.name);
 
+  private readonly shippingMilestones = [
+    {
+      status: 'BOOKED',
+      label: 'Booked',
+    },
+    {
+      status: 'RECEIVED',
+      label: 'Received',
+    },
+    {
+      status: 'LOADED',
+      label: 'Loaded',
+    },
+    {
+      status: 'IN_TRANSIT',
+      label: 'In Transit',
+    },
+    {
+      status: 'ARRIVED',
+      label: 'Arrived',
+    },
+    {
+      status: 'CUSTOMS_CLEARANCE',
+      label: 'Customs Clearance',
+    },
+    {
+      status: 'READY_FOR_DELIVERY',
+      label: 'Ready for Delivery',
+    },
+    {
+      status: 'DELIVERED',
+      label: 'Delivered',
+    },
+  ] as const;
+
   async sendShipmentUpdate(
     notification: ShipmentTrackingNotification,
   ): Promise<boolean> {
@@ -28,10 +63,16 @@ export class WhatsAppNotificationProvider {
       !templateName ||
       !recipient
     ) {
+      this.logger.warn(
+        'WhatsApp notification skipped because configuration or customer phone is missing.',
+      );
+
       return false;
     }
 
     const endpoint = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
+
+    const milestoneSummary = this.buildMilestonesText(notification.status);
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -67,11 +108,15 @@ export class WhatsAppNotificationProvider {
                 },
                 {
                   type: 'text',
-                  text: notification.status,
+                  text: this.formatStatus(notification.status),
                 },
                 {
                   type: 'text',
                   text: notification.trackingUrl,
+                },
+                {
+                  type: 'text',
+                  text: milestoneSummary,
                 },
               ],
             },
@@ -95,6 +140,37 @@ export class WhatsAppNotificationProvider {
     );
 
     return true;
+  }
+
+  private buildMilestonesText(currentStatus: string): string {
+    if (currentStatus === 'CANCELLED') {
+      return '✕ Shipment Cancelled';
+    }
+
+    const currentIndex = this.shippingMilestones.findIndex(
+      (milestone) => milestone.status === currentStatus,
+    );
+
+    if (currentIndex < 0) {
+      return this.formatStatus(currentStatus);
+    }
+
+    return this.shippingMilestones
+      .map((milestone, index) => {
+        const symbol =
+          index < currentIndex ? '✓' : index === currentIndex ? '●' : '○';
+
+        return `${symbol} ${milestone.label}`;
+      })
+      .join('\n');
+  }
+
+  private formatStatus(status: string): string {
+    return status
+      .toLowerCase()
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
 
   private normalizePhone(value?: string | null): string | null {
