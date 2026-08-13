@@ -32,4 +32,20 @@ export default tseslint.config(
       "prettier/prettier": ["error", { endOfLine: "auto" }],
     },
   },
+
+  // Jest/Nest test helpers expose intentionally loose values such as
+  // mock.calls, Reflect metadata and parsed mock HTTP payloads.
+  // Keep production TypeScript strict while allowing these test APIs.
+  {
+    files: [
+      '**/*.spec.ts',
+      'test/**/*.ts',
+    ],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/unbound-method': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+    },
+  },
 );

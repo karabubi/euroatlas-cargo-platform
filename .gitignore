@@ -71,3 +71,6 @@ apps/api/.env.email.local
 
 # Local WhatsApp credentials
 apps/api/.env.whatsapp.local
+
+# Local public homepage safety backups
+apps/web/src/app/*.backup-before-public-home

@@ -1,5 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { ThrottlerModule } from '@nestjs/throttler';
 import request from 'supertest';
 import { App } from 'supertest/types';
 
@@ -39,6 +40,15 @@ describe('Tracking workflow protection HTTP API (e2e)', () => {
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [
+        ThrottlerModule.forRoot([
+          {
+            name: 'publicTracking',
+            ttl: 60_000,
+            limit: 20,
+          },
+        ]),
+      ],
       controllers: [TrackingController],
 
       providers: [
@@ -71,7 +81,9 @@ describe('Tracking workflow protection HTTP API (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('allows a normal NOTE_ADDED tracking event', async () => {
