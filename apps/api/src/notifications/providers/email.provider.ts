@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { setDefaultResultOrder } from 'node:dns';
 import nodemailer, { type Transporter } from 'nodemailer';
 
 import type { ShipmentTrackingNotification } from '../notification.types';
@@ -63,6 +64,8 @@ export class EmailNotificationProvider {
 
       return;
     }
+
+    setDefaultResultOrder('ipv4first');
 
     this.transporter = nodemailer.createTransport({
       host,
