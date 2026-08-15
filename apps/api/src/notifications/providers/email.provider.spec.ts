@@ -34,6 +34,7 @@ describe('EmailNotificationProvider', () => {
     const sendMail = jest.fn();
 
     (nodemailer.createTransport as jest.Mock).mockReturnValue({
+      verify: jest.fn().mockResolvedValue(true),
       sendMail,
     });
 
@@ -56,6 +57,7 @@ describe('EmailNotificationProvider', () => {
     });
 
     (nodemailer.createTransport as jest.Mock).mockReturnValue({
+      verify: jest.fn().mockResolvedValue(true),
       sendMail,
     });
 
@@ -102,6 +104,7 @@ describe('EmailNotificationProvider', () => {
     const sendMail = jest.fn();
 
     (nodemailer.createTransport as jest.Mock).mockReturnValue({
+      verify: jest.fn().mockResolvedValue(true),
       sendMail,
     });
 
@@ -177,6 +180,7 @@ describe('Email HTML safety', () => {
     });
 
     (nodemailer.createTransport as jest.Mock).mockReturnValue({
+      verify: jest.fn().mockResolvedValue(true),
       sendMail,
     });
 

@@ -75,6 +75,28 @@ export class EmailNotificationProvider {
         pass: password,
       },
     });
+
+    void this.verifyConnection();
+  }
+
+  private async verifyConnection(): Promise<void> {
+    if (!this.transporter) {
+      return;
+    }
+
+    try {
+      await this.transporter.verify();
+
+      this.logger.log('SMTP connection verified successfully.');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        this.logger.error(
+          `SMTP connection verification failed: ${error.message}`,
+        );
+      } else {
+        this.logger.error('SMTP connection verification failed.');
+      }
+    }
   }
 
   async sendShipmentUpdate(
