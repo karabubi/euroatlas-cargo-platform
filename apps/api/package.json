@@ -25,7 +25,8 @@
     "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "verify": "pnpm run test:all && pnpm run typecheck && pnpm run lint:check && pnpm run build",
     "email:smtp:check": "node scripts/smtp-check.mjs",
-    "email:tracking:test": "ts-node --transpile-only scripts/send-tracking-email-test.ts"
+    "email:tracking:test": "ts-node --transpile-only scripts/send-tracking-email-test.ts",
+    "test:e2e:local": "bash scripts/local-tests/e2e-local.sh"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
