@@ -24,7 +24,6 @@
     "typecheck": "tsc --noEmit",
     "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "verify": "pnpm run test:all && pnpm run typecheck && pnpm run lint:check && pnpm run build",
-    "email:smtp:check": "node scripts/smtp-check.mjs",
     "email:tracking:test": "ts-node --transpile-only scripts/send-tracking-email-test.ts",
     "test:e2e:local": "bash scripts/local-tests/e2e-local.sh"
   },
@@ -44,12 +43,12 @@
     "class-validator": "^0.15.1",
     "helmet": "^8.3.0",
     "multer": "^2.2.0",
-    "nodemailer": "^9.0.5",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pdfkit": "^0.19.1",
     "pg": "^8.22.0",
     "reflect-metadata": "^0.2.2",
+    "resend": "^6.20.0",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
@@ -63,7 +62,6 @@
     "@types/jest": "^30.0.0",
     "@types/multer": "^2.2.0",
     "@types/node": "^24.0.0",
-    "@types/nodemailer": "^8.0.1",
     "@types/passport-jwt": "^4.0.1",
     "@types/pdfkit": "^0.17.6",
     "@types/pg": "^8.20.0",

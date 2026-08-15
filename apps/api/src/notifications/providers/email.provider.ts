@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { setDefaultResultOrder } from 'node:dns';
-import nodemailer, { type Transporter } from 'nodemailer';
+import { Resend } from 'resend';
 
 import type { ShipmentTrackingNotification } from '../notification.types';
 
@@ -44,72 +43,40 @@ export class EmailNotificationProvider {
 
   private readonly logger = new Logger(EmailNotificationProvider.name);
 
-  private readonly transporter: Transporter | null;
+  private readonly resend: Resend | null;
 
   constructor() {
-    const host = process.env.SMTP_HOST;
+    const apiKey = process.env.RESEND_API_KEY?.trim();
 
-    const port = Number(process.env.SMTP_PORT ?? '587');
-
-    const user = process.env.SMTP_USER;
-
-    const password = process.env.SMTP_PASSWORD;
-
-    if (!host || !user || !password) {
-      this.transporter = null;
+    if (!apiKey) {
+      this.resend = null;
 
       this.logger.warn(
-        'Email notifications disabled because SMTP configuration is incomplete.',
+        'Email notifications disabled because RESEND_API_KEY is missing.',
       );
 
       return;
     }
 
-    setDefaultResultOrder('ipv4first');
-
-    this.transporter = nodemailer.createTransport({
-      host,
-      port,
-
-      secure: process.env.SMTP_SECURE === 'true',
-
-      auth: {
-        user,
-        pass: password,
-      },
-    });
-
-    void this.verifyConnection();
-  }
-
-  private async verifyConnection(): Promise<void> {
-    if (!this.transporter) {
-      return;
-    }
-
-    try {
-      await this.transporter.verify();
-
-      this.logger.log('SMTP connection verified successfully.');
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(
-          `SMTP connection verification failed: ${error.message}`,
-        );
-      } else {
-        this.logger.error('SMTP connection verification failed.');
-      }
-    }
+    this.resend = new Resend(apiKey);
   }
 
   async sendShipmentUpdate(
     notification: ShipmentTrackingNotification,
   ): Promise<boolean> {
-    if (!this.transporter || !notification.customerEmail) {
+    if (!this.resend || !notification.customerEmail) {
       return false;
     }
 
-    const from = process.env.EMAIL_FROM ?? process.env.SMTP_USER;
+    const from = process.env.EMAIL_FROM?.trim();
+
+    if (!from) {
+      this.logger.error(
+        'Tracking email cannot be sent because EMAIL_FROM is missing.',
+      );
+
+      return false;
+    }
 
     const customerName = notification.customerName ?? 'Customer';
 
@@ -141,13 +108,21 @@ export class EmailNotificationProvider {
       trackingUrl: notification.trackingUrl,
     });
 
-    await this.transporter.sendMail({
+    const customerResult = await this.resend.emails.send({
       from,
-      to: notification.customerEmail,
+      to: [notification.customerEmail],
       subject,
       text,
       html,
     });
+
+    if (customerResult.error) {
+      this.logger.error(
+        `Tracking email failed for shipment ${notification.shipmentNo}: ${customerResult.error.message}`,
+      );
+
+      return false;
+    }
 
     this.logger.log(
       `Tracking email sent for shipment ${notification.shipmentNo}.`,
@@ -162,7 +137,7 @@ export class EmailNotificationProvider {
     notification: ShipmentTrackingNotification,
     from: string | undefined,
   ): Promise<void> {
-    if (!this.transporter) {
+    if (!this.resend) {
       return;
     }
 
@@ -321,13 +296,21 @@ export class EmailNotificationProvider {
 `;
 
     try {
-      await this.transporter.sendMail({
+      const adminResult = await this.resend.emails.send({
         from,
-        to: adminEmail,
+        to: [adminEmail],
         subject,
         text,
         html,
       });
+
+      if (adminResult.error) {
+        this.logger.error(
+          `Customer email was sent, but admin confirmation failed for shipment ${notification.shipmentNo}: ${adminResult.error.message}`,
+        );
+
+        return;
+      }
 
       this.logger.log(
         `Admin tracking confirmation sent for shipment ${notification.shipmentNo}.`,
