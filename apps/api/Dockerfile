@@ -34,9 +34,6 @@ COPY apps/api/package.json \
 COPY apps/web/package.json \
      ./apps/web/package.json
 
-COPY packages \
-     ./packages
-
 RUN pnpm install \
   --frozen-lockfile
 
@@ -49,6 +46,8 @@ FROM dependencies AS builder
 
 COPY apps/api \
      ./apps/api
+
+RUN pnpm --dir apps/api exec prisma generate
 
 RUN pnpm --dir apps/api build
 
