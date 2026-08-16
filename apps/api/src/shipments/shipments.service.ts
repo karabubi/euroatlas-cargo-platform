@@ -304,25 +304,49 @@ export class ShipmentsService {
       process.env.PUBLIC_TRACKING_URL ?? 'http://localhost:3000/track'
     ).replace(/\/$/, '');
 
-    const sent = await this.notifications.sendShipmentTrackingWhatsApp({
-      shipmentId: shipment.id,
+    let sent = false;
 
-      shipmentNo: shipment.shipmentNo,
+    try {
+      sent = await this.notifications.sendShipmentTrackingWhatsApp({
+        shipmentId: shipment.id,
 
-      trackingNumber: shipment.shipmentNo,
+        shipmentNo: shipment.shipmentNo,
 
-      status: shipment.status,
+        trackingNumber: shipment.shipmentNo,
 
-      customerName,
+        status: shipment.status,
 
-      customerEmail: shipment.customer.email,
+        customerName,
 
-      customerPhone,
+        customerEmail: shipment.customer.email,
 
-      trackingUrl: `${trackingBaseUrl}/${encodeURIComponent(
-        shipment.shipmentNo,
-      )}`,
-    });
+        customerPhone,
+
+        trackingUrl: `${trackingBaseUrl}/${encodeURIComponent(
+          shipment.shipmentNo,
+        )}`,
+      });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Unknown tracking WhatsApp error.';
+
+      await this.prisma.shipmentNotificationHistory.create({
+        data: {
+          shipmentId: shipment.id,
+          channel: ShipmentNotificationChannel.WHATSAPP,
+          recipient: customerPhone,
+          notificationType: 'TRACKING',
+          shipmentStatus: shipment.status,
+          deliveryStatus: NotificationDeliveryStatus.FAILED,
+          provider: 'WHATSAPP',
+          errorMessage,
+        },
+      });
+
+      throw error;
+    }
 
     if (!sent) {
       await this.prisma.shipmentNotificationHistory.create({

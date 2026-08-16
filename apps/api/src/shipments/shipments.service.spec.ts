@@ -253,6 +253,51 @@ describe('ShipmentsService', () => {
     });
   });
 
+  it('records FAILED history when the WhatsApp provider throws an exception', async () => {
+    const shipment = {
+      id: 'shipment-1',
+      shipmentNo: 'EAC-2026-0001',
+      status: 'IN_TRANSIT',
+      customer: {
+        companyName: 'Example Logistics',
+        firstName: 'Test',
+        lastName: 'Customer',
+        email: 'customer@example.com',
+        mobile: '+491701234567',
+        phone: null,
+      },
+    };
+
+    prismaServiceMock.shipment.findUnique.mockResolvedValue(shipment);
+
+    notificationsServiceMock.sendShipmentTrackingWhatsApp.mockRejectedValue(
+      new Error('WhatsApp network failure'),
+    );
+
+    prismaServiceMock.shipmentNotificationHistory.create.mockResolvedValue({
+      id: 'whatsapp-history-exception',
+    });
+
+    await expect(service.sendTrackingWhatsApp('shipment-1')).rejects.toThrow(
+      'WhatsApp network failure',
+    );
+
+    expect(
+      prismaServiceMock.shipmentNotificationHistory.create,
+    ).toHaveBeenCalledWith({
+      data: {
+        shipmentId: 'shipment-1',
+        channel: 'WHATSAPP',
+        recipient: '+491701234567',
+        notificationType: 'TRACKING',
+        shipmentStatus: 'IN_TRANSIT',
+        deliveryStatus: 'FAILED',
+        provider: 'WHATSAPP',
+        errorMessage: 'WhatsApp network failure',
+      },
+    });
+  });
+
   it('returns notification history newest first', async () => {
     prismaServiceMock.shipment.findUnique.mockResolvedValue({
       id: 'shipment-1',
