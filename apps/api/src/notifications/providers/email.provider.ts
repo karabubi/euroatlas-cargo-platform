@@ -343,8 +343,14 @@ export class EmailNotificationProvider {
       'SHIPPING MILESTONES',
       '',
       ...this.shippingMilestones.map((milestone, index) => {
+        const delivered = currentStatus === 'DELIVERED';
+
         const symbol =
-          index < currentIndex ? '✓' : index === currentIndex ? '●' : '○';
+          delivered || index < currentIndex
+            ? '✓'
+            : index === currentIndex
+              ? '●'
+              : '○';
 
         return `${symbol} ${milestone.label}`;
       }),
@@ -391,9 +397,11 @@ export class EmailNotificationProvider {
 
     const rows = this.shippingMilestones
       .map((milestone, index) => {
-        const completed = index < currentIndex;
+        const delivered = currentStatus === 'DELIVERED';
 
-        const current = index === currentIndex;
+        const completed = delivered || index < currentIndex;
+
+        const current = !delivered && index === currentIndex;
 
         const marker = completed ? '✓' : current ? '●' : '○';
 

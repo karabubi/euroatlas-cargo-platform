@@ -214,4 +214,107 @@ describe('Email HTML safety', () => {
 
     expect(message.html).not.toContain('<script>');
   });
+
+  it('renders IN_TRANSIT milestones with previous stages completed', async () => {
+    const send = jest.fn().mockResolvedValue({
+      data: { id: 'email-in-transit' },
+      error: null,
+    });
+
+    (Resend as jest.Mock).mockImplementation(() => ({
+      emails: { send },
+    }));
+
+    const provider = new EmailNotificationProvider();
+
+    const result = await provider.sendShipmentUpdate({
+      shipmentId: '11111111-1111-1111-1111-111111111111',
+      shipmentNo: 'EAC-2026-0001',
+      trackingNumber: 'EAC-2026-0001',
+      status: 'IN_TRANSIT',
+      customerName: 'Test Customer',
+      customerEmail: 'customer@example.com',
+      customerPhone: null,
+      trackingUrl: 'http://localhost:3000/track/EAC-2026-0001',
+    });
+
+    expect(result).toBe(true);
+
+    const message = send.mock.calls[0][0];
+
+    expect(message.text).toContain('✓ Booked');
+    expect(message.text).toContain('✓ Received');
+    expect(message.text).toContain('✓ Loaded');
+    expect(message.text).toContain('● In Transit');
+    expect(message.text).toContain('○ Arrived');
+  });
+
+  it('renders DELIVERED with every milestone completed', async () => {
+    const send = jest.fn().mockResolvedValue({
+      data: { id: 'email-delivered' },
+      error: null,
+    });
+
+    (Resend as jest.Mock).mockImplementation(() => ({
+      emails: { send },
+    }));
+
+    const provider = new EmailNotificationProvider();
+
+    const result = await provider.sendShipmentUpdate({
+      shipmentId: '11111111-1111-1111-1111-111111111111',
+      shipmentNo: 'EAC-2026-0001',
+      trackingNumber: 'EAC-2026-0001',
+      status: 'DELIVERED',
+      customerName: 'Test Customer',
+      customerEmail: 'customer@example.com',
+      customerPhone: null,
+      trackingUrl: 'http://localhost:3000/track/EAC-2026-0001',
+    });
+
+    expect(result).toBe(true);
+
+    const message = send.mock.calls[0][0];
+
+    expect(message.text).toContain('✓ Booked');
+    expect(message.text).toContain('✓ Received');
+    expect(message.text).toContain('✓ Loaded');
+    expect(message.text).toContain('✓ In Transit');
+    expect(message.text).toContain('✓ Arrived');
+    expect(message.text).toContain('✓ Customs Clearance');
+    expect(message.text).toContain('✓ Ready for Delivery');
+    expect(message.text).toContain('✓ Delivered');
+    expect(message.text).not.toContain('● Delivered');
+  });
+
+  it('renders CANCELLED as cancelled instead of a normal milestone', async () => {
+    const send = jest.fn().mockResolvedValue({
+      data: { id: 'email-cancelled' },
+      error: null,
+    });
+
+    (Resend as jest.Mock).mockImplementation(() => ({
+      emails: { send },
+    }));
+
+    const provider = new EmailNotificationProvider();
+
+    const result = await provider.sendShipmentUpdate({
+      shipmentId: '11111111-1111-1111-1111-111111111111',
+      shipmentNo: 'EAC-2026-0001',
+      trackingNumber: 'EAC-2026-0001',
+      status: 'CANCELLED',
+      customerName: 'Test Customer',
+      customerEmail: 'customer@example.com',
+      customerPhone: null,
+      trackingUrl: 'http://localhost:3000/track/EAC-2026-0001',
+    });
+
+    expect(result).toBe(true);
+
+    const message = send.mock.calls[0][0];
+
+    expect(message.text).toContain('✕ Shipment Cancelled');
+    expect(message.html).toContain('Shipment Cancelled');
+  });
 });
