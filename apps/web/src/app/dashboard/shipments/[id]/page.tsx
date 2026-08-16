@@ -173,6 +173,8 @@ export default function ShipmentDetailsPage() {
       setTrackingWhatsAppMessage(
         `${result.message} Recipient: ${result.recipient}`,
       );
+
+      setNotificationHistoryRefreshKey((value) => value + 1);
     } catch (error) {
       setTrackingWhatsAppError(
         error instanceof Error

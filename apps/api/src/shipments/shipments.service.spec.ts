@@ -26,6 +26,7 @@ describe('ShipmentsService', () => {
 
   const notificationsServiceMock = {
     sendShipmentTrackingEmail: jest.fn(),
+    sendShipmentTrackingWhatsApp: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -143,6 +144,112 @@ describe('ShipmentsService', () => {
         errorMessage:
           'Tracking email provider returned an unsuccessful result.',
       }),
+    });
+  });
+
+  it('records SENT history when the WhatsApp provider succeeds', async () => {
+    const shipment = {
+      id: 'shipment-1',
+      shipmentNo: 'EAC-2026-0001',
+      status: 'DRAFT',
+      customer: {
+        companyName: null,
+        firstName: 'Test',
+        lastName: 'Customer',
+        email: 'customer@example.com',
+        mobile: '+491701234567',
+        phone: '+492281234567',
+      },
+    };
+
+    prismaServiceMock.shipment.findUnique.mockResolvedValue(shipment);
+    notificationsServiceMock.sendShipmentTrackingWhatsApp.mockResolvedValue(
+      true,
+    );
+
+    prismaServiceMock.shipmentNotificationHistory.create.mockResolvedValue({
+      id: 'whatsapp-history-1',
+    });
+
+    const result = await service.sendTrackingWhatsApp('shipment-1');
+
+    expect(
+      notificationsServiceMock.sendShipmentTrackingWhatsApp,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shipmentId: 'shipment-1',
+        shipmentNo: 'EAC-2026-0001',
+        customerPhone: '+491701234567',
+        status: 'DRAFT',
+      }),
+    );
+
+    expect(
+      prismaServiceMock.shipmentNotificationHistory.create,
+    ).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        shipmentId: 'shipment-1',
+        channel: 'WHATSAPP',
+        recipient: '+491701234567',
+        notificationType: 'TRACKING',
+        shipmentStatus: 'DRAFT',
+        deliveryStatus: 'SENT',
+        provider: 'WHATSAPP',
+        sentAt: expect.any(Date),
+      }),
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        recipient: '+491701234567',
+        status: 'DRAFT',
+        notificationHistoryId: 'whatsapp-history-1',
+      }),
+    );
+  });
+
+  it('records FAILED history when the WhatsApp provider returns false', async () => {
+    const shipment = {
+      id: 'shipment-1',
+      shipmentNo: 'EAC-2026-0001',
+      status: 'DRAFT',
+      customer: {
+        companyName: null,
+        firstName: 'Test',
+        lastName: 'Customer',
+        email: 'customer@example.com',
+        mobile: null,
+        phone: '+492281234567',
+      },
+    };
+
+    prismaServiceMock.shipment.findUnique.mockResolvedValue(shipment);
+    notificationsServiceMock.sendShipmentTrackingWhatsApp.mockResolvedValue(
+      false,
+    );
+
+    prismaServiceMock.shipmentNotificationHistory.create.mockResolvedValue({
+      id: 'whatsapp-history-failed',
+    });
+
+    await expect(service.sendTrackingWhatsApp('shipment-1')).rejects.toThrow(
+      'Tracking WhatsApp message could not be sent.',
+    );
+
+    expect(
+      prismaServiceMock.shipmentNotificationHistory.create,
+    ).toHaveBeenCalledWith({
+      data: {
+        shipmentId: 'shipment-1',
+        channel: 'WHATSAPP',
+        recipient: '+492281234567',
+        notificationType: 'TRACKING',
+        shipmentStatus: 'DRAFT',
+        deliveryStatus: 'FAILED',
+        provider: 'WHATSAPP',
+        errorMessage:
+          'Tracking WhatsApp provider returned an unsuccessful result.',
+      },
     });
   });
 

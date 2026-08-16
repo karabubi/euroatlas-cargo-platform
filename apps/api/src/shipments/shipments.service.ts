@@ -325,10 +325,38 @@ export class ShipmentsService {
     });
 
     if (!sent) {
+      await this.prisma.shipmentNotificationHistory.create({
+        data: {
+          shipmentId: shipment.id,
+          channel: ShipmentNotificationChannel.WHATSAPP,
+          recipient: customerPhone,
+          notificationType: 'TRACKING',
+          shipmentStatus: shipment.status,
+          deliveryStatus: NotificationDeliveryStatus.FAILED,
+          provider: 'WHATSAPP',
+          errorMessage:
+            'Tracking WhatsApp provider returned an unsuccessful result.',
+        },
+      });
+
       throw new BadRequestException(
         'Tracking WhatsApp message could not be sent.',
       );
     }
+
+    const notificationHistory =
+      await this.prisma.shipmentNotificationHistory.create({
+        data: {
+          shipmentId: shipment.id,
+          channel: ShipmentNotificationChannel.WHATSAPP,
+          recipient: customerPhone,
+          notificationType: 'TRACKING',
+          shipmentStatus: shipment.status,
+          deliveryStatus: NotificationDeliveryStatus.SENT,
+          provider: 'WHATSAPP',
+          sentAt: new Date(),
+        },
+      });
 
     return {
       message: 'Tracking WhatsApp message sent successfully.',
@@ -338,6 +366,8 @@ export class ShipmentsService {
       recipient: customerPhone,
 
       status: shipment.status,
+
+      notificationHistoryId: notificationHistory.id,
     };
   }
 
