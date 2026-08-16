@@ -89,6 +89,19 @@ COPY --from=builder \
   /workspace/apps/api/dist \
   /app/apps/api/dist
 
+# Prisma migration files are required at runtime because the
+# Render Free service applies committed migrations immediately
+# before starting the NestJS application.
+COPY --from=builder \
+  --chown=node:node \
+  /workspace/apps/api/prisma \
+  /app/apps/api/prisma
+
+COPY --from=builder \
+  --chown=node:node \
+  /workspace/apps/api/prisma.config.ts \
+  /app/apps/api/prisma.config.ts
+
 RUN mkdir -p \
       /app/apps/api/uploads/documents \
       /app/apps/api/uploads/vehicle-photos \
@@ -107,4 +120,7 @@ HEALTHCHECK \
   CMD node -e \
   "fetch('http://127.0.0.1:4000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
 
-CMD ["node", "dist/src/main.js"]
+# Apply only committed production migrations.
+# prisma migrate deploy is idempotent: already-applied migrations
+# are skipped before the application starts.
+CMD ["/bin/sh", "-c", "./node_modules/.bin/prisma migrate deploy && exec node dist/src/main.js"]
