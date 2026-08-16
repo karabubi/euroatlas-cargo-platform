@@ -8,6 +8,10 @@ import type { ShipmentTrackingNotification } from '../notification.types';
 export class EmailNotificationProvider {
   private readonly shippingMilestones = [
     {
+      status: 'DRAFT',
+      label: 'Draft',
+    },
+    {
       status: 'BOOKED',
       label: 'Booked',
     },

@@ -215,6 +215,57 @@ describe('Email HTML safety', () => {
     expect(message.html).not.toContain('<script>');
   });
 
+  it('renders DRAFT as the active first shipping milestone', async () => {
+    const send = jest.fn().mockResolvedValue({
+      data: { id: 'email-draft' },
+      error: null,
+    });
+
+    (Resend as jest.Mock).mockImplementation(() => ({
+      emails: { send },
+    }));
+
+    process.env.RESEND_API_KEY = 're_test_key';
+    process.env.EMAIL_FROM = 'EuroAtlas Cargo <tracking@example.com>';
+
+    const provider = new EmailNotificationProvider();
+
+    await provider.sendShipmentUpdate({
+      shipmentId: '11111111-1111-1111-1111-111111111111',
+      shipmentNo: 'EAC-2026-0001',
+      trackingNumber: 'EAC-2026-0001',
+      status: 'DRAFT',
+      customerName: 'Test Customer',
+      customerEmail: 'customer@example.com',
+      customerPhone: null,
+      trackingUrl: 'https://example.com/track/EAC-2026-0001',
+    });
+
+    expect(send).toHaveBeenCalled();
+
+    const customerEmail = send.mock.calls[0][0];
+
+    expect(customerEmail.text).toContain('● Draft');
+    expect(customerEmail.text).toContain('○ Booked');
+    expect(customerEmail.text).toContain('○ Received');
+    expect(customerEmail.text).toContain('○ Loaded');
+    expect(customerEmail.text).toContain('○ In Transit');
+    expect(customerEmail.text).toContain('○ Arrived');
+    expect(customerEmail.text).toContain('○ Customs Clearance');
+    expect(customerEmail.text).toContain('○ Ready for Delivery');
+    expect(customerEmail.text).toContain('○ Delivered');
+
+    expect(customerEmail.html).toContain('Draft');
+    expect(customerEmail.html).toContain('Booked');
+    expect(customerEmail.html).toContain('Received');
+    expect(customerEmail.html).toContain('Loaded');
+    expect(customerEmail.html).toContain('In Transit');
+    expect(customerEmail.html).toContain('Arrived');
+    expect(customerEmail.html).toContain('Customs Clearance');
+    expect(customerEmail.html).toContain('Ready for Delivery');
+    expect(customerEmail.html).toContain('Delivered');
+  });
+
   it('renders IN_TRANSIT milestones with previous stages completed', async () => {
     const send = jest.fn().mockResolvedValue({
       data: { id: 'email-in-transit' },
