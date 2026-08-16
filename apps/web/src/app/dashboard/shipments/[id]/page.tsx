@@ -14,6 +14,7 @@ import {
 } from "@/lib/shipment-status-ui";
 import type { ShipmentStatus } from "@/types/shipment";
 import { TrackShipmentButton } from "@/components/shipment/track-shipment-button";
+import { ShipmentNotificationHistory } from "@/components/shipments/shipment-notification-history";
 
 type Customer = {
   id: string;
@@ -93,6 +94,9 @@ export default function ShipmentDetailsPage() {
   const [shipment, setShipment] = useState<Shipment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [notificationHistoryRefreshKey, setNotificationHistoryRefreshKey] =
+    useState(0);
 
   const [sendingTrackingEmail, setSendingTrackingEmail] = useState(false);
 
@@ -201,6 +205,8 @@ export default function ShipmentDetailsPage() {
       setTrackingEmailMessage(
         `${result.message} Recipient: ${result.recipient}`,
       );
+
+      setNotificationHistoryRefreshKey((value) => value + 1);
     } catch (error) {
       setTrackingEmailError(
         error instanceof Error
@@ -336,6 +342,11 @@ export default function ShipmentDetailsPage() {
       </section>
 
       <ShipmentTrackingPanel shipmentId={shipment.id} />
+
+      <ShipmentNotificationHistory
+        shipmentId={shipment.id}
+        refreshKey={notificationHistoryRefreshKey}
+      />
 
       <ShipmentReadinessPanel shipmentId={shipment.id} />
 

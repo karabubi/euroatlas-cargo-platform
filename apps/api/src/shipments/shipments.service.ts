@@ -6,7 +6,11 @@ import {
   Optional,
 } from '@nestjs/common';
 
-import { ShipmentStatus } from '../../generated/prisma/enums';
+import {
+  NotificationDeliveryStatus,
+  ShipmentNotificationChannel,
+  ShipmentStatus,
+} from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
@@ -142,32 +146,84 @@ export class ShipmentsService {
       process.env.PUBLIC_TRACKING_URL ?? 'http://localhost:3000/track'
     ).replace(/\/$/, '');
 
-    const sent = await this.notifications.sendShipmentTrackingEmail({
-      shipmentId: shipment.id,
+    let sent = false;
 
-      shipmentNo: shipment.shipmentNo,
+    try {
+      sent = await this.notifications.sendShipmentTrackingEmail({
+        shipmentId: shipment.id,
 
-      trackingNumber: shipment.shipmentNo,
+        shipmentNo: shipment.shipmentNo,
 
-      status: shipment.status,
+        trackingNumber: shipment.shipmentNo,
 
-      customerName,
+        status: shipment.status,
 
-      customerEmail,
+        customerName,
 
-      customerPhone:
-        shipment.customer.mobile?.trim() ||
-        shipment.customer.phone?.trim() ||
-        null,
+        customerEmail,
 
-      trackingUrl: `${trackingBaseUrl}/${encodeURIComponent(
-        shipment.shipmentNo,
-      )}`,
-    });
+        customerPhone:
+          shipment.customer.mobile?.trim() ||
+          shipment.customer.phone?.trim() ||
+          null,
+
+        trackingUrl: `${trackingBaseUrl}/${encodeURIComponent(
+          shipment.shipmentNo,
+        )}`,
+      });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Unknown tracking email error.';
+
+      await this.prisma.shipmentNotificationHistory.create({
+        data: {
+          shipmentId: shipment.id,
+          channel: ShipmentNotificationChannel.EMAIL,
+          recipient: customerEmail,
+          notificationType: 'TRACKING',
+          shipmentStatus: shipment.status,
+          deliveryStatus: NotificationDeliveryStatus.FAILED,
+          provider: 'RESEND',
+          errorMessage,
+        },
+      });
+
+      throw error;
+    }
 
     if (!sent) {
+      await this.prisma.shipmentNotificationHistory.create({
+        data: {
+          shipmentId: shipment.id,
+          channel: ShipmentNotificationChannel.EMAIL,
+          recipient: customerEmail,
+          notificationType: 'TRACKING',
+          shipmentStatus: shipment.status,
+          deliveryStatus: NotificationDeliveryStatus.FAILED,
+          provider: 'RESEND',
+          errorMessage:
+            'Tracking email provider returned an unsuccessful result.',
+        },
+      });
+
       throw new BadRequestException('Tracking email could not be sent.');
     }
+
+    const notificationHistory =
+      await this.prisma.shipmentNotificationHistory.create({
+        data: {
+          shipmentId: shipment.id,
+          channel: ShipmentNotificationChannel.EMAIL,
+          recipient: customerEmail,
+          notificationType: 'TRACKING',
+          shipmentStatus: shipment.status,
+          deliveryStatus: NotificationDeliveryStatus.SENT,
+          provider: 'RESEND',
+          sentAt: new Date(),
+        },
+      });
 
     return {
       message: 'Tracking email sent successfully.',
@@ -177,7 +233,35 @@ export class ShipmentsService {
       recipient: customerEmail,
 
       status: shipment.status,
+
+      notificationHistoryId: notificationHistory.id,
     };
+  }
+
+  async getNotificationHistory(shipmentId: string) {
+    const shipment = await this.prisma.shipment.findUnique({
+      where: {
+        id: shipmentId,
+      },
+
+      select: {
+        id: true,
+      },
+    });
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found.');
+    }
+
+    return this.prisma.shipmentNotificationHistory.findMany({
+      where: {
+        shipmentId,
+      },
+
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
   }
 
   async sendTrackingWhatsApp(shipmentId: string) {

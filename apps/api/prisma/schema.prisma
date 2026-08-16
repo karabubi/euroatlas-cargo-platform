@@ -49,35 +49,36 @@ model Customer {
 }
 
 model Shipment {
-  id                 String             @id @default(uuid())
-  shipmentNo         String             @unique
-  customerId         String
-  status             ShipmentStatus     @default(DRAFT)
-  originCountry      String
-  originCity         String?
-  originPort         String?
-  destinationCountry String
-  destinationCity    String?
-  destinationPort    String?
-  bookingReference   String?
-  containerNumber    String?
-  shippingLine       String?
-  vesselName         String?
-  voyageNumber       String?
-  estimatedDeparture DateTime?
-  actualDeparture    DateTime?
-  estimatedArrival   DateTime?
-  actualArrival      DateTime?
-  description        String?
-  notes              String?
-  isActive           Boolean            @default(true)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  invoices           Invoice[]
-  customer           Customer           @relation(fields: [customerId], references: [id])
-  documents          ShipmentDocument[]
-  tracking           ShipmentTracking[]
-  vehicles           Vehicle[]
+  id                  String                        @id @default(uuid())
+  shipmentNo          String                        @unique
+  customerId          String
+  status              ShipmentStatus                @default(DRAFT)
+  originCountry       String
+  originCity          String?
+  originPort          String?
+  destinationCountry  String
+  destinationCity     String?
+  destinationPort     String?
+  bookingReference    String?
+  containerNumber     String?
+  shippingLine        String?
+  vesselName          String?
+  voyageNumber        String?
+  estimatedDeparture  DateTime?
+  actualDeparture     DateTime?
+  estimatedArrival    DateTime?
+  actualArrival       DateTime?
+  description         String?
+  notes               String?
+  isActive            Boolean                       @default(true)
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
+  invoices            Invoice[]
+  customer            Customer                      @relation(fields: [customerId], references: [id])
+  documents           ShipmentDocument[]
+  tracking            ShipmentTracking[]
+  notificationHistory ShipmentNotificationHistory[]
+  vehicles            Vehicle[]
 
   @@index([customerId])
   @@index([shipmentNo])
@@ -438,4 +439,36 @@ model InspectionApprovalHistory {
   @@index([toStatus])
   @@index([changedBy])
   @@index([createdAt])
+}
+
+enum ShipmentNotificationChannel {
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationDeliveryStatus {
+  SENT
+  FAILED
+}
+
+model ShipmentNotificationHistory {
+  id                String                      @id @default(uuid())
+  shipmentId        String
+  channel           ShipmentNotificationChannel
+  recipient         String
+  notificationType  String                      @default("TRACKING")
+  shipmentStatus    ShipmentStatus
+  deliveryStatus    NotificationDeliveryStatus
+  provider          String
+  providerMessageId String?
+  errorMessage      String?
+  sentAt            DateTime?
+  createdAt         DateTime                    @default(now())
+  shipment          Shipment                    @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentId])
+  @@index([channel])
+  @@index([deliveryStatus])
+  @@index([createdAt])
+  @@map("shipment_notification_history")
 }
