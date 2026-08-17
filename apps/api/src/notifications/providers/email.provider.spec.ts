@@ -65,7 +65,7 @@ describe('EmailNotificationProvider', () => {
       expect.objectContaining({
         from: 'EuroAtlas Cargo <notifications@example.com>',
         to: ['customer@example.com'],
-        subject: 'EuroAtlas Cargo – Shipment EAC-2026-0001',
+        subject: 'EuroAtlas Cargo – Tracking sent – EAC-2026-0001',
         text: expect.stringContaining(
           'http://localhost:3000/track/EAC-2026-0001',
         ),

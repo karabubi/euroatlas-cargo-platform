@@ -53,6 +53,34 @@ describe('ShipmentsService', () => {
     expect(service).toBeDefined();
   });
 
+  it('rejects tracking email when the customer has no email', async () => {
+    prismaServiceMock.shipment.findUnique.mockResolvedValue({
+      id: 'shipment-1',
+      shipmentNo: 'EAC-2026-0001',
+      status: 'DRAFT',
+      customer: {
+        companyName: 'Example Logistics',
+        firstName: 'Test',
+        lastName: 'Customer',
+        email: null,
+        mobile: '+491701234567',
+        phone: null,
+      },
+    });
+
+    await expect(service.sendTrackingEmail('shipment-1')).rejects.toThrow(
+      'This customer has no email address. Please add one in Customers before sending tracking updates.',
+    );
+
+    expect(
+      notificationsServiceMock.sendShipmentTrackingEmail,
+    ).not.toHaveBeenCalled();
+
+    expect(
+      prismaServiceMock.shipmentNotificationHistory.create,
+    ).not.toHaveBeenCalled();
+  });
+
   it('sends tracking email to the customer attached to the shipment and records SENT history', async () => {
     prismaServiceMock.shipment.findUnique.mockResolvedValue({
       id: 'shipment-1',
@@ -93,7 +121,7 @@ describe('ShipmentsService', () => {
       data: expect.objectContaining({
         shipmentId: 'shipment-1',
         recipient: 'customer@example.com',
-        notificationType: 'TRACKING',
+        notificationType: 'TRACKING_EMAIL_SENT',
         provider: 'RESEND',
         sentAt: expect.any(Date),
       }),
@@ -101,7 +129,7 @@ describe('ShipmentsService', () => {
 
     expect(result).toEqual(
       expect.objectContaining({
-        message: 'Tracking email sent successfully.',
+        message: 'Tracking email sent to Example Logistics.',
         recipient: 'customer@example.com',
         notificationHistoryId: 'history-1',
       }),
@@ -130,7 +158,7 @@ describe('ShipmentsService', () => {
     });
 
     await expect(service.sendTrackingEmail('shipment-1')).rejects.toThrow(
-      'Tracking email could not be sent.',
+      'Failed to send tracking email. Please try again.',
     );
 
     expect(
@@ -139,7 +167,7 @@ describe('ShipmentsService', () => {
       data: expect.objectContaining({
         shipmentId: 'shipment-1',
         recipient: 'customer@example.com',
-        notificationType: 'TRACKING',
+        notificationType: 'TRACKING_EMAIL_FAILED',
         provider: 'RESEND',
         errorMessage:
           'Tracking email provider returned an unsuccessful result.',
@@ -328,5 +356,89 @@ describe('ShipmentsService', () => {
     });
 
     expect(history).toHaveLength(2);
+  });
+
+  it('rejects an invalid customer email before calling the provider', async () => {
+    prismaServiceMock.shipment.findUnique.mockResolvedValue({
+      id: 'shipment-1',
+      shipmentNo: 'EAC-2026-0001',
+      status: 'DRAFT',
+      originCity: 'Hamburg',
+      originCountry: 'Germany',
+      destinationCity: 'Tripoli',
+      destinationCountry: 'Libya',
+      estimatedArrival: null,
+      customer: {
+        id: 'customer-1',
+        companyName: 'logistk GMBH',
+        firstName: 'Saleh',
+        lastName: 'Alkarabubi',
+        email: 'not-an-email',
+        phone: null,
+      },
+    } as never);
+
+    await expect(service.sendTrackingEmail('shipment-1')).rejects.toThrow(
+      'Customer email address appears invalid. Please check and correct it.',
+    );
+
+    expect(
+      notificationsServiceMock.sendShipmentTrackingEmail,
+    ).not.toHaveBeenCalled();
+
+    expect(
+      prismaServiceMock.shipmentNotificationHistory.create,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('records the authenticated administrator in tracking email history', async () => {
+    prismaServiceMock.shipment.findUnique.mockResolvedValue({
+      id: 'shipment-audit',
+      shipmentNo: 'EAC-2026-0001',
+      customerId: 'customer-1',
+      status: 'DRAFT',
+      originCity: 'Hamburg',
+      originCountry: 'Germany',
+      destinationCity: 'Tripoli',
+      destinationCountry: 'Libya',
+      estimatedArrival: null,
+      customer: {
+        id: 'customer-1',
+        companyName: 'logistk GMBH',
+        firstName: 'Saleh',
+        lastName: 'Alkarabubi',
+        email: 'customer@example.com',
+        phone: null,
+        mobile: null,
+      },
+    } as never);
+
+    notificationsServiceMock.sendShipmentTrackingEmail.mockResolvedValue(true);
+
+    prismaServiceMock.shipmentNotificationHistory.create.mockResolvedValue({
+      id: 'history-audit',
+    } as never);
+
+    await service.sendTrackingEmail('shipment-audit', {
+      id: 'admin-1',
+      email: 'admin@euroatlas.example',
+      firstName: 'EuroAtlas',
+      lastName: 'Administrator',
+    });
+
+    expect(
+      prismaServiceMock.shipmentNotificationHistory.create,
+    ).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        shipmentId: 'shipment-audit',
+        customerId: 'customer-1',
+        recipient: 'customer@example.com',
+        notificationType: 'TRACKING_EMAIL_SENT',
+        sentById: 'admin-1',
+        sentByEmail: 'admin@euroatlas.example',
+        sentByName: 'EuroAtlas Administrator',
+        sentAt: expect.any(Date),
+      }),
+    });
   });
 });

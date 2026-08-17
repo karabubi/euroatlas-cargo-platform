@@ -23,25 +23,26 @@ model User {
 }
 
 model Customer {
-  id          String     @id @default(uuid())
-  customerNo  String     @unique
-  companyName String?
-  firstName   String
-  lastName    String
-  email       String?    @unique
-  phone       String?
-  mobile      String?
-  address     String?
-  postalCode  String?
-  city        String?
-  country     String?
-  taxNumber   String?
-  notes       String?
-  isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  invoices    Invoice[]
-  shipments   Shipment[]
+  id                            String                        @id @default(uuid())
+  customerNo                    String                        @unique
+  companyName                   String?
+  firstName                     String
+  lastName                      String
+  email                         String?                       @unique
+  phone                         String?
+  mobile                        String?
+  address                       String?
+  postalCode                    String?
+  city                          String?
+  country                       String?
+  taxNumber                     String?
+  notes                         String?
+  isActive                      Boolean                       @default(true)
+  createdAt                     DateTime                      @default(now())
+  updatedAt                     DateTime                      @updatedAt
+  invoices                      Invoice[]
+  shipments                     Shipment[]
+  shipmentNotificationHistories ShipmentNotificationHistory[]
 
   @@index([lastName])
   @@index([companyName])
@@ -454,6 +455,10 @@ enum NotificationDeliveryStatus {
 model ShipmentNotificationHistory {
   id                String                      @id @default(uuid())
   shipmentId        String
+  customerId        String
+  sentById          String?
+  sentByEmail       String?
+  sentByName        String?
   channel           ShipmentNotificationChannel
   recipient         String
   notificationType  String                      @default("TRACKING")
@@ -465,8 +470,11 @@ model ShipmentNotificationHistory {
   sentAt            DateTime?
   createdAt         DateTime                    @default(now())
   shipment          Shipment                    @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  customer          Customer                    @relation(fields: [customerId], references: [id], onDelete: Restrict)
 
   @@index([shipmentId])
+  @@index([customerId])
+  @@index([sentById])
   @@index([channel])
   @@index([deliveryStatus])
   @@index([createdAt])

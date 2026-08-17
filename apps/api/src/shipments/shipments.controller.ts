@@ -1,3 +1,5 @@
+import type { AuthenticatedUser } from '../auth/auth-user.type';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import {
   Body,
   Controller,
@@ -56,8 +58,12 @@ export class ShipmentsController {
   sendTrackingEmail(
     @Param('id')
     id: string,
+    @CurrentUser()
+    user?: AuthenticatedUser,
   ) {
-    return this.shipmentsService.sendTrackingEmail(id);
+    return user
+      ? this.shipmentsService.sendTrackingEmail(id, user)
+      : this.shipmentsService.sendTrackingEmail(id);
   }
 
   @Post(':id/cancel')

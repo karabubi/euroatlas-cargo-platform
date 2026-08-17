@@ -86,7 +86,7 @@ export class EmailNotificationProvider {
 
     const status = this.formatStatus(notification.status);
 
-    const subject = `EuroAtlas Cargo – Shipment ${notification.shipmentNo}`;
+    const subject = `EuroAtlas Cargo – Tracking sent – ${notification.shipmentNo}`;
 
     const text = [
       `Hello ${customerName},`,

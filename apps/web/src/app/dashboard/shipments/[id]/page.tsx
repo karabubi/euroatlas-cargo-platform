@@ -16,6 +16,9 @@ import type { ShipmentStatus } from "@/types/shipment";
 import { TrackShipmentButton } from "@/components/shipment/track-shipment-button";
 import { ShipmentNotificationHistory } from "@/components/shipments/shipment-notification-history";
 
+const isWhatsAppEnabled =
+  process.env.NEXT_PUBLIC_WHATSAPP_ENABLED === "true";
+
 type Customer = {
   id: string;
   customerNo: string;
@@ -171,7 +174,7 @@ export default function ShipmentDetailsPage() {
       });
 
       setTrackingWhatsAppMessage(
-        `${result.message} Recipient: ${result.recipient}`,
+        result.message,
       );
 
       setNotificationHistoryRefreshKey((value) => value + 1);
@@ -191,6 +194,24 @@ export default function ShipmentDetailsPage() {
       return;
     }
 
+    const customerEmail = shipment.customer.email?.trim();
+
+    if (!customerEmail) {
+      setTrackingEmailMessage(null);
+      setTrackingEmailError(
+        "This customer has no email address. Please add one in Customers before sending tracking updates.",
+      );
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
+      setTrackingEmailError(
+        "Customer email address appears invalid. Please check and correct it.",
+      );
+      return;
+    }
+
+
     setSendingTrackingEmail(true);
     setTrackingEmailMessage(null);
     setTrackingEmailError(null);
@@ -205,7 +226,7 @@ export default function ShipmentDetailsPage() {
       });
 
       setTrackingEmailMessage(
-        `${result.message} Recipient: ${result.recipient}`,
+        result.message,
       );
 
       setNotificationHistoryRefreshKey((value) => value + 1);
@@ -278,16 +299,22 @@ export default function ShipmentDetailsPage() {
               {sendingTrackingEmail ? "Sending..." : "Send Tracking Email"}
             </button>
 
-            <button
-              type="button"
-              onClick={handleSendTrackingWhatsApp}
-              disabled={sendingTrackingWhatsApp}
-              className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {sendingTrackingWhatsApp
-                ? "Sending WhatsApp..."
-                : "Send Tracking WhatsApp"}
-            </button>
+            {isWhatsAppEnabled ? (
+              <button
+                type="button"
+                onClick={handleSendTrackingWhatsApp}
+                disabled={sendingTrackingWhatsApp}
+                className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {sendingTrackingWhatsApp
+                  ? "Sending WhatsApp..."
+                  : "Send Tracking WhatsApp"}
+              </button>
+            ) : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-800">
+                WhatsApp notifications will be available soon.
+              </div>
+            )}
 
             <Link
               href="/dashboard/shipments"

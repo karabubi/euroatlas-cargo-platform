@@ -11,6 +11,7 @@ import {
   ShipmentNotificationChannel,
   ShipmentStatus,
 } from '../../generated/prisma/enums';
+import { isEmail } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
@@ -22,6 +23,13 @@ import { DeliverShipmentDto } from './dto/deliver-shipment.dto';
 import { DispatchShipmentDto } from './dto/dispatch-shipment.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 import { isShipmentTransitionAllowed } from './shipment-workflow';
+
+type TrackingNotificationActor = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+};
 
 @Injectable()
 export class ShipmentsService {
@@ -107,7 +115,10 @@ export class ShipmentsService {
     });
   }
 
-  async sendTrackingEmail(shipmentId: string) {
+  async sendTrackingEmail(
+    shipmentId: string,
+    actor?: TrackingNotificationActor,
+  ) {
     if (!this.notifications) {
       throw new BadRequestException('Notification service is unavailable.');
     }
@@ -130,7 +141,13 @@ export class ShipmentsService {
 
     if (!customerEmail) {
       throw new BadRequestException(
-        'This customer does not have an email address.',
+        'This customer has no email address. Please add one in Customers before sending tracking updates.',
+      );
+    }
+
+    if (!isEmail(customerEmail)) {
+      throw new BadRequestException(
+        'Customer email address appears invalid. Please check and correct it.',
       );
     }
 
@@ -141,6 +158,15 @@ export class ShipmentsService {
         .join(' ')
         .trim() ||
       'Customer';
+
+    const auditActor = {
+      sentById: actor?.id ?? null,
+      sentByEmail: actor?.email ?? null,
+      sentByName:
+        [actor?.firstName, actor?.lastName].filter(Boolean).join(' ').trim() ||
+        actor?.email ||
+        null,
+    };
 
     const trackingBaseUrl = (
       process.env.PUBLIC_TRACKING_URL ?? 'http://localhost:3000/track'
@@ -180,9 +206,11 @@ export class ShipmentsService {
       await this.prisma.shipmentNotificationHistory.create({
         data: {
           shipmentId: shipment.id,
+          customerId: shipment.customerId,
+          ...auditActor,
           channel: ShipmentNotificationChannel.EMAIL,
           recipient: customerEmail,
-          notificationType: 'TRACKING',
+          notificationType: 'TRACKING_EMAIL_FAILED',
           shipmentStatus: shipment.status,
           deliveryStatus: NotificationDeliveryStatus.FAILED,
           provider: 'RESEND',
@@ -190,16 +218,20 @@ export class ShipmentsService {
         },
       });
 
-      throw error;
+      throw new BadRequestException(
+        'Failed to send tracking email. Please try again.',
+      );
     }
 
     if (!sent) {
       await this.prisma.shipmentNotificationHistory.create({
         data: {
           shipmentId: shipment.id,
+          customerId: shipment.customerId,
+          ...auditActor,
           channel: ShipmentNotificationChannel.EMAIL,
           recipient: customerEmail,
-          notificationType: 'TRACKING',
+          notificationType: 'TRACKING_EMAIL_FAILED',
           shipmentStatus: shipment.status,
           deliveryStatus: NotificationDeliveryStatus.FAILED,
           provider: 'RESEND',
@@ -208,16 +240,20 @@ export class ShipmentsService {
         },
       });
 
-      throw new BadRequestException('Tracking email could not be sent.');
+      throw new BadRequestException(
+        'Failed to send tracking email. Please try again.',
+      );
     }
 
     const notificationHistory =
       await this.prisma.shipmentNotificationHistory.create({
         data: {
           shipmentId: shipment.id,
+          customerId: shipment.customerId,
+          ...auditActor,
           channel: ShipmentNotificationChannel.EMAIL,
           recipient: customerEmail,
-          notificationType: 'TRACKING',
+          notificationType: 'TRACKING_EMAIL_SENT',
           shipmentStatus: shipment.status,
           deliveryStatus: NotificationDeliveryStatus.SENT,
           provider: 'RESEND',
@@ -226,7 +262,8 @@ export class ShipmentsService {
       });
 
     return {
-      message: 'Tracking email sent successfully.',
+      message: `Tracking email sent to ${customerName}.`,
+      customerName,
 
       shipmentNo: shipment.shipmentNo,
 
@@ -335,6 +372,7 @@ export class ShipmentsService {
       await this.prisma.shipmentNotificationHistory.create({
         data: {
           shipmentId: shipment.id,
+          customerId: shipment.customerId,
           channel: ShipmentNotificationChannel.WHATSAPP,
           recipient: customerPhone,
           notificationType: 'TRACKING',
@@ -352,6 +390,7 @@ export class ShipmentsService {
       await this.prisma.shipmentNotificationHistory.create({
         data: {
           shipmentId: shipment.id,
+          customerId: shipment.customerId,
           channel: ShipmentNotificationChannel.WHATSAPP,
           recipient: customerPhone,
           notificationType: 'TRACKING',
@@ -372,6 +411,7 @@ export class ShipmentsService {
       await this.prisma.shipmentNotificationHistory.create({
         data: {
           shipmentId: shipment.id,
+          customerId: shipment.customerId,
           channel: ShipmentNotificationChannel.WHATSAPP,
           recipient: customerPhone,
           notificationType: 'TRACKING',
