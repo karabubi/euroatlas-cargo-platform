@@ -1,12 +1,12 @@
-import { createTransport } from 'nodemailer';
+import { createGmailApiTransport } from './gmail-api.transport';
 
 import type { ShipmentTrackingNotification } from '../notification.types';
 import { EmailNotificationProvider } from './email.provider';
 
 const sendMail = jest.fn();
 
-jest.mock('nodemailer', () => ({
-  createTransport: jest.fn(),
+jest.mock('./gmail-api.transport', () => ({
+  createGmailApiTransport: jest.fn(),
 }));
 
 const notification = (
@@ -30,20 +30,18 @@ describe('EmailNotificationProvider', () => {
     jest.clearAllMocks();
     sendMail.mockReset();
     sendMail.mockResolvedValue({
-      messageId: 'smtp-test-message-id',
+      messageId: 'gmail-test-message-id',
     });
 
-    jest.mocked(createTransport).mockReturnValue({
+    jest.mocked(createGmailApiTransport).mockReturnValue({
       sendMail,
     } as never);
 
     process.env = {
       ...originalEnv,
-      SMTP_HOST: 'smtp.gmail.com',
-      SMTP_PORT: '465',
-      SMTP_SECURE: 'true',
-      SMTP_USER: 'alkarabubi@gmail.com',
-      SMTP_PASSWORD: 'test-app-password',
+      GMAIL_OAUTH_CLIENT_ID: 'test-client-id',
+      GMAIL_OAUTH_CLIENT_SECRET: 'test-client-secret',
+      GMAIL_OAUTH_REFRESH_TOKEN: 'test-refresh-token',
       EMAIL_FROM: 'EuroAtlas Cargo <alkarabubi@gmail.com>',
     };
 
@@ -54,32 +52,14 @@ describe('EmailNotificationProvider', () => {
     process.env = originalEnv;
   });
 
-  it('creates a secure SMTP transport from environment configuration', () => {
+  it('creates a Gmail API transport from environment configuration', () => {
     new EmailNotificationProvider();
 
-    expect(createTransport).toHaveBeenCalledWith({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      auth: {
-        user: 'alkarabubi@gmail.com',
-        pass: 'test-app-password',
-      },
+    expect(createGmailApiTransport).toHaveBeenCalledWith({
+      clientId: 'test-client-id',
+      clientSecret: 'test-client-secret',
+      refreshToken: 'test-refresh-token',
     });
-  });
-
-  it('uses STARTTLS mode when SMTP_SECURE is false on port 587', () => {
-    process.env.SMTP_PORT = '587';
-    process.env.SMTP_SECURE = 'false';
-
-    new EmailNotificationProvider();
-
-    expect(createTransport).toHaveBeenCalledWith(
-      expect.objectContaining({
-        port: 587,
-        secure: false,
-      }),
-    );
   });
 
   it('sends tracking email only to the customer email', async () => {
@@ -114,29 +94,19 @@ describe('EmailNotificationProvider', () => {
     expect(sendMail).not.toHaveBeenCalled();
   });
 
-  it('disables email when SMTP configuration is incomplete', async () => {
-    delete process.env.SMTP_PASSWORD;
+  it('disables email when Gmail API configuration is incomplete', async () => {
+    delete process.env.GMAIL_OAUTH_REFRESH_TOKEN;
 
     const provider = new EmailNotificationProvider();
     const result = await provider.sendShipmentUpdate(notification());
 
     expect(result).toBe(false);
-    expect(createTransport).not.toHaveBeenCalled();
+    expect(createGmailApiTransport).not.toHaveBeenCalled();
     expect(sendMail).not.toHaveBeenCalled();
   });
 
-  it('disables email when SMTP_PORT is invalid', async () => {
-    process.env.SMTP_PORT = 'invalid';
-
-    const provider = new EmailNotificationProvider();
-    const result = await provider.sendShipmentUpdate(notification());
-
-    expect(result).toBe(false);
-    expect(createTransport).not.toHaveBeenCalled();
-  });
-
-  it('returns false when SMTP rejects the customer email', async () => {
-    sendMail.mockRejectedValueOnce(new Error('SMTP test failure'));
+  it('returns false when Gmail API rejects the customer email', async () => {
+    sendMail.mockRejectedValueOnce(new Error('Gmail API test failure'));
 
     const provider = new EmailNotificationProvider();
     const result = await provider.sendShipmentUpdate(notification());
@@ -171,20 +141,18 @@ describe('Email HTML safety and milestones', () => {
     jest.clearAllMocks();
     sendMail.mockReset();
     sendMail.mockResolvedValue({
-      messageId: 'smtp-html-test',
+      messageId: 'gmail-html-test',
     });
 
-    jest.mocked(createTransport).mockReturnValue({
+    jest.mocked(createGmailApiTransport).mockReturnValue({
       sendMail,
     } as never);
 
     process.env = {
       ...originalEnv,
-      SMTP_HOST: 'smtp.gmail.com',
-      SMTP_PORT: '465',
-      SMTP_SECURE: 'true',
-      SMTP_USER: 'alkarabubi@gmail.com',
-      SMTP_PASSWORD: 'test-app-password',
+      GMAIL_OAUTH_CLIENT_ID: 'test-client-id',
+      GMAIL_OAUTH_CLIENT_SECRET: 'test-client-secret',
+      GMAIL_OAUTH_REFRESH_TOKEN: 'test-refresh-token',
       EMAIL_FROM: 'EuroAtlas Cargo <alkarabubi@gmail.com>',
     };
 

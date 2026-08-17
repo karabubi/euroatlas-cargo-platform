@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { createTransport, type Transporter } from 'nodemailer';
+import {
+  createGmailApiTransport,
+  type GmailApiTransport,
+} from './gmail-api.transport';
 
 import type { ShipmentTrackingNotification } from '../notification.types';
 
@@ -47,45 +50,27 @@ export class EmailNotificationProvider {
 
   private readonly logger = new Logger(EmailNotificationProvider.name);
 
-  private readonly transporter: Transporter | null;
+  private readonly transporter: GmailApiTransport | null;
 
   constructor() {
-    const host = process.env.SMTP_HOST?.trim();
-    const portValue = process.env.SMTP_PORT?.trim();
-    const user = process.env.SMTP_USER?.trim();
-    const password = process.env.SMTP_PASSWORD?.trim();
+    const clientId = process.env.GMAIL_OAUTH_CLIENT_ID?.trim();
+    const clientSecret = process.env.GMAIL_OAUTH_CLIENT_SECRET?.trim();
+    const refreshToken = process.env.GMAIL_OAUTH_REFRESH_TOKEN?.trim();
 
-    const port = Number(portValue);
-
-    if (
-      !host ||
-      !portValue ||
-      !Number.isInteger(port) ||
-      port <= 0 ||
-      port > 65535 ||
-      !user ||
-      !password
-    ) {
+    if (!clientId || !clientSecret || !refreshToken) {
       this.transporter = null;
 
       this.logger.warn(
-        'Email notifications disabled because SMTP configuration is incomplete.',
+        'Email notifications disabled because Gmail API configuration is incomplete.',
       );
 
       return;
     }
 
-    const secure =
-      process.env.SMTP_SECURE?.trim().toLowerCase() === 'true' || port === 465;
-
-    this.transporter = createTransport({
-      host,
-      port,
-      secure,
-      auth: {
-        user,
-        pass: password,
-      },
+    this.transporter = createGmailApiTransport({
+      clientId,
+      clientSecret,
+      refreshToken,
     });
   }
 
@@ -146,7 +131,7 @@ export class EmailNotificationProvider {
       });
     } catch (error: unknown) {
       const errorMessage =
-        error instanceof Error ? error.message : 'Unknown SMTP error.';
+        error instanceof Error ? error.message : 'Unknown Gmail API error.';
 
       this.logger.error(
         `Tracking email failed for shipment ${notification.shipmentNo}: ${errorMessage}`,

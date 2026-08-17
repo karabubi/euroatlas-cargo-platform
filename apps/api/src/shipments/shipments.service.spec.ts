@@ -122,7 +122,7 @@ describe('ShipmentsService', () => {
         shipmentId: 'shipment-1',
         recipient: 'customer@example.com',
         notificationType: 'TRACKING_EMAIL_SENT',
-        provider: 'SMTP',
+        provider: 'GMAIL_API',
         sentAt: expect.any(Date),
       }),
     });
@@ -168,7 +168,7 @@ describe('ShipmentsService', () => {
         shipmentId: 'shipment-1',
         recipient: 'customer@example.com',
         notificationType: 'TRACKING_EMAIL_FAILED',
-        provider: 'SMTP',
+        provider: 'GMAIL_API',
         errorMessage:
           'Tracking email provider returned an unsuccessful result.',
       }),
