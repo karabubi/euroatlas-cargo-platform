@@ -213,7 +213,7 @@ export class ShipmentsService {
           notificationType: 'TRACKING_EMAIL_FAILED',
           shipmentStatus: shipment.status,
           deliveryStatus: NotificationDeliveryStatus.FAILED,
-          provider: 'RESEND',
+          provider: 'SMTP',
           errorMessage,
         },
       });
@@ -234,7 +234,7 @@ export class ShipmentsService {
           notificationType: 'TRACKING_EMAIL_FAILED',
           shipmentStatus: shipment.status,
           deliveryStatus: NotificationDeliveryStatus.FAILED,
-          provider: 'RESEND',
+          provider: 'SMTP',
           errorMessage:
             'Tracking email provider returned an unsuccessful result.',
         },
@@ -256,7 +256,7 @@ export class ShipmentsService {
           notificationType: 'TRACKING_EMAIL_SENT',
           shipmentStatus: shipment.status,
           deliveryStatus: NotificationDeliveryStatus.SENT,
-          provider: 'RESEND',
+          provider: 'SMTP',
           sentAt: new Date(),
         },
       });

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { Resend } from 'resend';
+import { createTransport, type Transporter } from 'nodemailer';
 
 import type { ShipmentTrackingNotification } from '../notification.types';
 
@@ -47,28 +47,52 @@ export class EmailNotificationProvider {
 
   private readonly logger = new Logger(EmailNotificationProvider.name);
 
-  private readonly resend: Resend | null;
+  private readonly transporter: Transporter | null;
 
   constructor() {
-    const apiKey = process.env.RESEND_API_KEY?.trim();
+    const host = process.env.SMTP_HOST?.trim();
+    const portValue = process.env.SMTP_PORT?.trim();
+    const user = process.env.SMTP_USER?.trim();
+    const password = process.env.SMTP_PASSWORD?.trim();
 
-    if (!apiKey) {
-      this.resend = null;
+    const port = Number(portValue);
+
+    if (
+      !host ||
+      !portValue ||
+      !Number.isInteger(port) ||
+      port <= 0 ||
+      port > 65535 ||
+      !user ||
+      !password
+    ) {
+      this.transporter = null;
 
       this.logger.warn(
-        'Email notifications disabled because RESEND_API_KEY is missing.',
+        'Email notifications disabled because SMTP configuration is incomplete.',
       );
 
       return;
     }
 
-    this.resend = new Resend(apiKey);
+    const secure =
+      process.env.SMTP_SECURE?.trim().toLowerCase() === 'true' || port === 465;
+
+    this.transporter = createTransport({
+      host,
+      port,
+      secure,
+      auth: {
+        user,
+        pass: password,
+      },
+    });
   }
 
   async sendShipmentUpdate(
     notification: ShipmentTrackingNotification,
   ): Promise<boolean> {
-    if (!this.resend || !notification.customerEmail) {
+    if (!this.transporter || !notification.customerEmail) {
       return false;
     }
 
@@ -112,17 +136,20 @@ export class EmailNotificationProvider {
       trackingUrl: notification.trackingUrl,
     });
 
-    const customerResult = await this.resend.emails.send({
-      from,
-      to: [notification.customerEmail],
-      subject,
-      text,
-      html,
-    });
+    try {
+      await this.transporter.sendMail({
+        from,
+        to: [notification.customerEmail],
+        subject,
+        text,
+        html,
+      });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown SMTP error.';
 
-    if (customerResult.error) {
       this.logger.error(
-        `Tracking email failed for shipment ${notification.shipmentNo}: ${customerResult.error.message}`,
+        `Tracking email failed for shipment ${notification.shipmentNo}: ${errorMessage}`,
       );
 
       return false;
@@ -141,7 +168,7 @@ export class EmailNotificationProvider {
     notification: ShipmentTrackingNotification,
     from: string | undefined,
   ): Promise<void> {
-    if (!this.resend) {
+    if (!this.transporter) {
       return;
     }
 
@@ -300,21 +327,13 @@ export class EmailNotificationProvider {
 `;
 
     try {
-      const adminResult = await this.resend.emails.send({
+      await this.transporter.sendMail({
         from,
         to: [adminEmail],
         subject,
         text,
         html,
       });
-
-      if (adminResult.error) {
-        this.logger.error(
-          `Customer email was sent, but admin confirmation failed for shipment ${notification.shipmentNo}: ${adminResult.error.message}`,
-        );
-
-        return;
-      }
 
       this.logger.log(
         `Admin tracking confirmation sent for shipment ${notification.shipmentNo}.`,
@@ -691,7 +710,7 @@ export class EmailNotificationProvider {
                       border-radius:10px;
                     "
                   >
-                    Track Shipment
+                    Open Tracking Page
                   </a>
                 </div>
 
