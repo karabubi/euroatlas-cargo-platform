@@ -47,6 +47,7 @@ export class VehiclePhotosController {
     const photo = await this.vehiclePhotosService.findOne(id);
 
     response.type(photo.mimeType);
+    response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
     return response.sendFile(
       this.vehiclePhotosService.getFilePath(photo.storedName),
