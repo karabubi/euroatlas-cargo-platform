@@ -435,27 +435,45 @@ export class ShipmentsService {
     };
   }
 
+  async getNextShipmentNumber() {
+    return {
+      shipmentNo: await this.generateShipmentNo(),
+    };
+  }
+
   async create(createShipmentDto: CreateShipmentDto) {
     await this.ensureCustomerExists(createShipmentDto.customerId);
 
-    const existingShipment = await this.prisma.shipment.findUnique({
-      where: {
-        shipmentNo: createShipmentDto.shipmentNo,
-      },
-    });
+    const maximumAttempts = 5;
 
-    if (existingShipment) {
-      throw new ConflictException(
-        `Shipment number ${createShipmentDto.shipmentNo} already exists.`,
-      );
+    for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
+      const shipmentNo = await this.generateShipmentNo();
+
+      try {
+        return await this.prisma.shipment.create({
+          data: {
+            ...this.prepareData(createShipmentDto),
+            shipmentNo,
+          },
+          include: {
+            customer: true,
+          },
+        });
+      } catch (error: unknown) {
+        if (
+          this.isShipmentNumberUniqueConstraintError(error) &&
+          attempt < maximumAttempts
+        ) {
+          continue;
+        }
+
+        throw error;
+      }
     }
 
-    return this.prisma.shipment.create({
-      data: this.prepareData(createShipmentDto),
-      include: {
-        customer: true,
-      },
-    });
+    throw new ConflictException(
+      'A unique shipment number could not be generated. Please try again.',
+    );
   }
 
   async findAll(search?: string, status?: string) {
@@ -1384,28 +1402,13 @@ export class ShipmentsService {
       await this.ensureCustomerExists(updateShipmentDto.customerId);
     }
 
-    if (
-      updateShipmentDto.shipmentNo &&
-      updateShipmentDto.shipmentNo !== shipment.shipmentNo
-    ) {
-      const duplicateShipment = await this.prisma.shipment.findUnique({
-        where: {
-          shipmentNo: updateShipmentDto.shipmentNo,
-        },
-      });
-
-      if (duplicateShipment) {
-        throw new ConflictException(
-          `Shipment number ${updateShipmentDto.shipmentNo} already exists.`,
-        );
-      }
-    }
+    const updateData = this.prepareData(updateShipmentDto);
 
     return this.prisma.shipment.update({
       where: {
         id,
       },
-      data: this.prepareData(updateShipmentDto),
+      data: updateData,
       include: {
         customer: true,
       },
@@ -1423,6 +1426,75 @@ export class ShipmentsService {
         customer: true,
       },
     });
+  }
+
+  private async generateShipmentNo(): Promise<string> {
+    const year = new Date().getUTCFullYear();
+    const prefix = `EAC-${year}-`;
+
+    const latestShipment = await this.prisma.shipment.findFirst({
+      where: {
+        shipmentNo: {
+          startsWith: prefix,
+        },
+      },
+      orderBy: {
+        shipmentNo: 'desc',
+      },
+      select: {
+        shipmentNo: true,
+      },
+    });
+
+    let nextSequence = 1;
+
+    if (latestShipment) {
+      const match = latestShipment.shipmentNo.match(/^EAC-\d{4}-(\d{4})$/);
+
+      if (match) {
+        nextSequence = Number(match[1]) + 1;
+      }
+    }
+
+    if (nextSequence > 9999) {
+      throw new ConflictException(
+        `Shipment number sequence for ${year} is exhausted.`,
+      );
+    }
+
+    return `${prefix}${String(nextSequence).padStart(4, '0')}`;
+  }
+
+  private isShipmentNumberUniqueConstraintError(error: unknown): boolean {
+    if (!error || typeof error !== 'object' || !('code' in error)) {
+      return false;
+    }
+
+    if (String(error.code) !== 'P2002') {
+      return false;
+    }
+
+    if (!('meta' in error)) {
+      return true;
+    }
+
+    const meta = error.meta;
+
+    if (!meta || typeof meta !== 'object') {
+      return true;
+    }
+
+    if (!('target' in meta)) {
+      return true;
+    }
+
+    const target = meta.target;
+
+    if (Array.isArray(target)) {
+      return target.includes('shipmentNo');
+    }
+
+    return String(target).includes('shipmentNo');
   }
 
   private async ensureCustomerExists(customerId: string) {

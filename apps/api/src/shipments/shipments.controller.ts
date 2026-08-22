@@ -33,6 +33,11 @@ export class ShipmentsController {
     return this.shipmentsService.create(createShipmentDto);
   }
 
+  @Get('next-number')
+  getNextShipmentNumber() {
+    return this.shipmentsService.getNextShipmentNumber();
+  }
+
   @Get()
   findAll(@Query('search') search?: string, @Query('status') status?: string) {
     return this.shipmentsService.findAll(search, status);

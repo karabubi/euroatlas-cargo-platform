@@ -240,10 +240,28 @@ export default function ShipmentsPage() {
     });
   }
 
-  function openCreateForm() {
+  async function openCreateForm() {
     setError("");
     setSuccess("");
     resetForm();
+
+    try {
+      const preview = await apiFetch<{
+        shipmentNo: string;
+      }>("/shipments/next-number");
+
+      setForm((current) => ({
+        ...current,
+        shipmentNo: preview.shipmentNo,
+      }));
+    } catch (requestError) {
+      setError(
+        getErrorMessage(
+          requestError,
+          "The next shipment number could not be loaded.",
+        ),
+      );
+    }
 
     document
       .getElementById("shipment-form")
@@ -292,11 +310,6 @@ export default function ShipmentsPage() {
     setError("");
     setSuccess("");
 
-    if (!form.shipmentNo.trim()) {
-      setError("Shipment number is required.");
-      return;
-    }
-
     if (!form.customerId) {
       setError("Please select a customer.");
       return;
@@ -305,7 +318,6 @@ export default function ShipmentsPage() {
     setIsSaving(true);
 
     const payload = {
-      shipmentNo: form.shipmentNo.trim(),
       customerId: form.customerId,
       bookingReference: form.bookingReference.trim() || undefined,
       containerNumber: form.containerNumber.trim() || undefined,
@@ -329,12 +341,17 @@ export default function ShipmentsPage() {
 
         setSuccess(`Shipment ${form.shipmentNo} was updated successfully.`);
       } else {
-        await apiFetch<Shipment>("/shipments", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
+        const createdShipment = await apiFetch<Shipment>(
+          "/shipments",
+          {
+            method: "POST",
+            body: JSON.stringify(payload),
+          },
+        );
 
-        setSuccess(`Shipment ${form.shipmentNo} was created successfully.`);
+        setSuccess(
+          `Shipment ${createdShipment.shipmentNo} was created successfully.`,
+        );
       }
 
       resetForm();
@@ -436,18 +453,22 @@ export default function ShipmentsPage() {
             <div className="grid gap-5 md:grid-cols-2">
               <label className="space-y-2">
                 <span className="text-sm font-semibold text-slate-700">
-                  Shipment number *
+                  Shipment number
                 </span>
-
                 <input
-                  required
-                  value={form.shipmentNo}
-                  onChange={(event) =>
-                    updateForm("shipmentNo", event.target.value)
+                  value={
+                    form.shipmentNo ||
+                    "Generated automatically"
                   }
-                  placeholder="EAC-2026-0001"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-950"
+                  readOnly
+                  aria-readonly="true"
+                  className="w-full cursor-not-allowed rounded-xl border border-slate-300 bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700"
                 />
+                <span className="block text-xs text-slate-500">
+                  {editingShipment
+                    ? "System generated — this number cannot be changed."
+                    : "Generated automatically by EuroAtlas Cargo."}
+                </span>
               </label>
 
               <label className="space-y-2">

@@ -11,10 +11,6 @@ import {
 import { ShipmentStatus } from '../../../generated/prisma/enums';
 
 export class CreateShipmentDto {
-  @IsString()
-  @MaxLength(50)
-  shipmentNo: string;
-
   @IsUUID()
   customerId: string;
 

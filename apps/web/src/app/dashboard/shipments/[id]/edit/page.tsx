@@ -227,11 +227,6 @@ export default function EditShipmentPage() {
     setError('');
     setSuccessMessage('');
 
-    if (!form.shipmentNo.trim()) {
-      setError('Shipment number is required.');
-      return;
-    }
-
     if (!form.originCountry.trim()) {
       setError('Origin country is required.');
       return;
@@ -250,7 +245,6 @@ export default function EditShipmentPage() {
         {
           method: 'PATCH',
           body: JSON.stringify({
-            shipmentNo: form.shipmentNo.trim(),
             customerId,
 originCountry: form.originCountry.trim(),
             originCity: nullableText(form.originCity),
@@ -380,12 +374,9 @@ originCountry: form.originCountry.trim(),
         className="space-y-6"
       >
         <FormSection title="General information">
-          <TextInput
+          <ReadOnlyInput
             label="Shipment number"
-            name="shipmentNo"
-            value={form.shipmentNo}
-            onChange={handleInputChange}
-            required
+            value={form.shipmentNo || '—'}
           />
 
           <ReadOnlyInput
