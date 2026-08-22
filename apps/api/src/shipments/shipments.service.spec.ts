@@ -8,6 +8,10 @@ describe('ShipmentsService', () => {
   let service: ShipmentsService;
 
   const prismaServiceMock = {
+    shipmentNumberCounter: {
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
+    },
     shipment: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
@@ -16,6 +20,7 @@ describe('ShipmentsService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    $transaction: jest.fn(),
     customer: {
       findUnique: jest.fn(),
     },
@@ -55,41 +60,36 @@ describe('ShipmentsService', () => {
   });
 
   describe('automatic shipment number generation', () => {
+    beforeEach(() => {
+      prismaServiceMock.$transaction.mockImplementation(
+        (callback: (transaction: typeof prismaServiceMock) => unknown) =>
+          callback(prismaServiceMock),
+      );
+    });
+
     afterEach(() => {
       jest.useRealTimers();
     });
 
-    it('starts a new year with EAC-2027-0001', async () => {
+    it('previews EAC-2027-0001 when the new year has no counter', async () => {
       jest.useFakeTimers();
       jest.setSystemTime(new Date('2027-01-01T00:00:00.000Z'));
 
-      prismaServiceMock.shipment.findFirst.mockResolvedValue(null);
+      prismaServiceMock.shipmentNumberCounter.findUnique.mockResolvedValue(
+        null,
+      );
 
       await expect(service.getNextShipmentNumber()).resolves.toEqual({
         shipmentNo: 'EAC-2027-0001',
       });
-
-      expect(prismaServiceMock.shipment.findFirst).toHaveBeenCalledWith({
-        where: {
-          shipmentNo: {
-            startsWith: 'EAC-2027-',
-          },
-        },
-        orderBy: {
-          shipmentNo: 'desc',
-        },
-        select: {
-          shipmentNo: true,
-        },
-      });
     });
 
-    it('increments the latest number in the same year', async () => {
+    it('previews the next value from the yearly counter', async () => {
       jest.useFakeTimers();
       jest.setSystemTime(new Date('2026-08-23T12:00:00.000Z'));
 
-      prismaServiceMock.shipment.findFirst.mockResolvedValue({
-        shipmentNo: 'EAC-2026-0042',
+      prismaServiceMock.shipmentNumberCounter.findUnique.mockResolvedValue({
+        lastValue: 42,
       });
 
       await expect(service.getNextShipmentNumber()).resolves.toEqual({
@@ -97,23 +97,12 @@ describe('ShipmentsService', () => {
       });
     });
 
-    it('does not continue the 2026 sequence in 2027', async () => {
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date('2027-01-01T00:00:01.000Z'));
-
-      prismaServiceMock.shipment.findFirst.mockResolvedValue(null);
-
-      await expect(service.getNextShipmentNumber()).resolves.toEqual({
-        shipmentNo: 'EAC-2027-0001',
-      });
-    });
-
-    it('rejects sequence numbers above 9999', async () => {
+    it('rejects a preview after sequence 9999', async () => {
       jest.useFakeTimers();
       jest.setSystemTime(new Date('2026-12-31T23:59:59.000Z'));
 
-      prismaServiceMock.shipment.findFirst.mockResolvedValue({
-        shipmentNo: 'EAC-2026-9999',
+      prismaServiceMock.shipmentNumberCounter.findUnique.mockResolvedValue({
+        lastValue: 9999,
       });
 
       await expect(service.getNextShipmentNumber()).rejects.toThrow(
@@ -121,7 +110,7 @@ describe('ShipmentsService', () => {
       );
     });
 
-    it('retries after a shipmentNo P2002 collision', async () => {
+    it('creates a shipment using the atomic yearly counter transaction', async () => {
       jest.useFakeTimers();
       jest.setSystemTime(new Date('2026-08-23T12:00:00.000Z'));
 
@@ -129,46 +118,133 @@ describe('ShipmentsService', () => {
         id: 'customer-1',
       });
 
-      prismaServiceMock.shipment.findFirst
-        .mockResolvedValueOnce({
-          shipmentNo: 'EAC-2026-0002',
-        })
-        .mockResolvedValueOnce({
-          shipmentNo: 'EAC-2026-0003',
-        });
+      prismaServiceMock.shipmentNumberCounter.upsert.mockResolvedValue({
+        lastValue: 5,
+      });
 
-      prismaServiceMock.shipment.create
-        .mockRejectedValueOnce({
-          code: 'P2002',
-          meta: {
-            target: ['shipmentNo'],
-          },
-        })
-        .mockResolvedValueOnce({
-          id: 'shipment-new',
-          shipmentNo: 'EAC-2026-0004',
-          customerId: 'customer-1',
-        });
+      prismaServiceMock.shipment.create.mockResolvedValue({
+        id: 'shipment-5',
+        shipmentNo: 'EAC-2026-0005',
+        customerId: 'customer-1',
+      });
 
       const dto = {
         customerId: 'customer-1',
+        originCountry: 'Germany',
+        destinationCountry: 'Libya',
         status: 'DRAFT',
       } as never;
 
       const result = await service.create(dto);
 
-      expect(prismaServiceMock.shipment.create).toHaveBeenCalledTimes(2);
+      expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
 
-      expect(prismaServiceMock.shipment.findFirst).toHaveBeenCalledTimes(2);
+      expect(
+        prismaServiceMock.shipmentNumberCounter.upsert,
+      ).toHaveBeenCalledWith({
+        where: {
+          year: 2026,
+        },
+        create: {
+          year: 2026,
+          lastValue: 1,
+        },
+        update: {
+          lastValue: {
+            increment: 1,
+          },
+        },
+        select: {
+          lastValue: true,
+        },
+      });
 
       expect(result).toEqual(
         expect.objectContaining({
-          shipmentNo: 'EAC-2026-0004',
+          shipmentNo: 'EAC-2026-0005',
         }),
       );
     });
 
-    it('does not retry a non-shipmentNo Prisma error', async () => {
+    it('starts an actual 2027 creation at EAC-2027-0001', async () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2027-01-01T00:00:00.000Z'));
+
+      prismaServiceMock.customer.findUnique.mockResolvedValue({
+        id: 'customer-1',
+      });
+
+      prismaServiceMock.shipmentNumberCounter.upsert.mockResolvedValue({
+        lastValue: 1,
+      });
+
+      prismaServiceMock.shipment.create.mockResolvedValue({
+        id: 'shipment-2027-1',
+        shipmentNo: 'EAC-2027-0001',
+        customerId: 'customer-1',
+      });
+
+      const dto = {
+        customerId: 'customer-1',
+        originCountry: 'Germany',
+        destinationCountry: 'Libya',
+        status: 'DRAFT',
+      } as never;
+
+      await expect(service.create(dto)).resolves.toEqual(
+        expect.objectContaining({
+          shipmentNo: 'EAC-2027-0001',
+        }),
+      );
+    });
+
+    it('maps the counter limit database constraint to ConflictException', async () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-12-31T23:59:59.000Z'));
+
+      prismaServiceMock.customer.findUnique.mockResolvedValue({
+        id: 'customer-1',
+      });
+
+      prismaServiceMock.$transaction.mockRejectedValueOnce({
+        code: 'P2004',
+        meta: {
+          constraint: 'ShipmentNumberCounter_lastValue_check',
+        },
+      });
+
+      const dto = {
+        customerId: 'customer-1',
+        originCountry: 'Germany',
+        destinationCountry: 'Libya',
+        status: 'DRAFT',
+      } as never;
+
+      await expect(service.create(dto)).rejects.toThrow(
+        'Shipment number sequence for 2026 is exhausted.',
+      );
+    });
+
+    it('propagates unrelated transaction errors unchanged', async () => {
+      prismaServiceMock.customer.findUnique.mockResolvedValue({
+        id: 'customer-1',
+      });
+
+      const databaseError = new Error('database connection lost');
+
+      prismaServiceMock.$transaction.mockRejectedValueOnce(databaseError);
+
+      const dto = {
+        customerId: 'customer-1',
+        originCountry: 'Germany',
+        destinationCountry: 'Libya',
+        status: 'DRAFT',
+      } as never;
+
+      await expect(service.create(dto)).rejects.toBe(databaseError);
+    });
+
+    it('assigns consecutive numbers to two transaction callbacks', async () => {
       jest.useFakeTimers();
       jest.setSystemTime(new Date('2026-08-23T12:00:00.000Z'));
 
@@ -176,27 +252,42 @@ describe('ShipmentsService', () => {
         id: 'customer-1',
       });
 
-      prismaServiceMock.shipment.findFirst.mockResolvedValue({
-        shipmentNo: 'EAC-2026-0002',
-      });
+      prismaServiceMock.shipmentNumberCounter.upsert
+        .mockResolvedValueOnce({
+          lastValue: 5,
+        })
+        .mockResolvedValueOnce({
+          lastValue: 6,
+        });
 
-      const prismaError = {
-        code: 'P2002',
-        meta: {
-          target: ['bookingReference'],
-        },
-      };
-
-      prismaServiceMock.shipment.create.mockRejectedValue(prismaError);
+      prismaServiceMock.shipment.create
+        .mockResolvedValueOnce({
+          id: 'shipment-5',
+          shipmentNo: 'EAC-2026-0005',
+          customerId: 'customer-1',
+        })
+        .mockResolvedValueOnce({
+          id: 'shipment-6',
+          shipmentNo: 'EAC-2026-0006',
+          customerId: 'customer-1',
+        });
 
       const dto = {
         customerId: 'customer-1',
+        originCountry: 'Germany',
+        destinationCountry: 'Libya',
         status: 'DRAFT',
       } as never;
 
-      await expect(service.create(dto)).rejects.toBe(prismaError);
+      const results = await Promise.all([
+        service.create(dto),
+        service.create(dto),
+      ]);
 
-      expect(prismaServiceMock.shipment.create).toHaveBeenCalledTimes(1);
+      expect(results.map((item) => item.shipmentNo)).toEqual([
+        'EAC-2026-0005',
+        'EAC-2026-0006',
+      ]);
     });
   });
 

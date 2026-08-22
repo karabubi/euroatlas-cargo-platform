@@ -444,13 +444,39 @@ export class ShipmentsService {
   async create(createShipmentDto: CreateShipmentDto) {
     await this.ensureCustomerExists(createShipmentDto.customerId);
 
-    const maximumAttempts = 5;
+    const year = new Date().getUTCFullYear();
 
-    for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
-      const shipmentNo = await this.generateShipmentNo();
+    try {
+      return await this.prisma.$transaction(async (transaction) => {
+        const counter = await transaction.shipmentNumberCounter.upsert({
+          where: {
+            year,
+          },
+          create: {
+            year,
+            lastValue: 1,
+          },
+          update: {
+            lastValue: {
+              increment: 1,
+            },
+          },
+          select: {
+            lastValue: true,
+          },
+        });
 
-      try {
-        return await this.prisma.shipment.create({
+        const sequence = counter.lastValue;
+
+        if (sequence > 9999) {
+          throw new ConflictException(
+            `Shipment number sequence for ${year} is exhausted.`,
+          );
+        }
+
+        const shipmentNo = `EAC-${year}-${String(sequence).padStart(4, '0')}`;
+
+        return transaction.shipment.create({
           data: {
             ...this.prepareData(createShipmentDto),
             shipmentNo,
@@ -459,21 +485,16 @@ export class ShipmentsService {
             customer: true,
           },
         });
-      } catch (error: unknown) {
-        if (
-          this.isShipmentNumberUniqueConstraintError(error) &&
-          attempt < maximumAttempts
-        ) {
-          continue;
-        }
-
-        throw error;
+      });
+    } catch (error: unknown) {
+      if (this.isCounterLimitConstraintError(error)) {
+        throw new ConflictException(
+          `Shipment number sequence for ${year} is exhausted.`,
+        );
       }
-    }
 
-    throw new ConflictException(
-      'A unique shipment number could not be generated. Please try again.',
-    );
+      throw error;
+    }
   }
 
   async findAll(search?: string, status?: string) {
@@ -1430,31 +1451,17 @@ export class ShipmentsService {
 
   private async generateShipmentNo(): Promise<string> {
     const year = new Date().getUTCFullYear();
-    const prefix = `EAC-${year}-`;
 
-    const latestShipment = await this.prisma.shipment.findFirst({
+    const counter = await this.prisma.shipmentNumberCounter.findUnique({
       where: {
-        shipmentNo: {
-          startsWith: prefix,
-        },
-      },
-      orderBy: {
-        shipmentNo: 'desc',
+        year,
       },
       select: {
-        shipmentNo: true,
+        lastValue: true,
       },
     });
 
-    let nextSequence = 1;
-
-    if (latestShipment) {
-      const match = latestShipment.shipmentNo.match(/^EAC-\d{4}-(\d{4})$/);
-
-      if (match) {
-        nextSequence = Number(match[1]) + 1;
-      }
-    }
+    const nextSequence = (counter?.lastValue ?? 0) + 1;
 
     if (nextSequence > 9999) {
       throw new ConflictException(
@@ -1462,39 +1469,34 @@ export class ShipmentsService {
       );
     }
 
-    return `${prefix}${String(nextSequence).padStart(4, '0')}`;
+    return `EAC-${year}-${String(nextSequence).padStart(4, '0')}`;
   }
 
-  private isShipmentNumberUniqueConstraintError(error: unknown): boolean {
+  private isCounterLimitConstraintError(error: unknown): boolean {
     if (!error || typeof error !== 'object' || !('code' in error)) {
       return false;
     }
 
-    if (String(error.code) !== 'P2002') {
+    // Prisma reports database constraint violations using
+    // provider-specific error codes. Restrict handling to
+    // the counter check-constraint name when metadata exists.
+    if (String(error.code) !== 'P2004') {
       return false;
     }
 
     if (!('meta' in error)) {
-      return true;
+      return false;
     }
 
     const meta = error.meta;
 
     if (!meta || typeof meta !== 'object') {
-      return true;
+      return false;
     }
 
-    if (!('target' in meta)) {
-      return true;
-    }
-
-    const target = meta.target;
-
-    if (Array.isArray(target)) {
-      return target.includes('shipmentNo');
-    }
-
-    return String(target).includes('shipmentNo');
+    return JSON.stringify(meta).includes(
+      'ShipmentNumberCounter_lastValue_check',
+    );
   }
 
   private async ensureCustomerExists(customerId: string) {

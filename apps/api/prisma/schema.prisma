@@ -480,3 +480,10 @@ model ShipmentNotificationHistory {
   @@index([createdAt])
   @@map("shipment_notification_history")
 }
+
+model ShipmentNumberCounter {
+  year      Int      @id
+  lastValue Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
