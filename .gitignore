@@ -74,3 +74,15 @@ apps/api/.env.whatsapp.local
 
 # Local public homepage safety backups
 apps/web/src/app/*.backup-before-public-home
+
+# Historical source backup files
+*.backup
+*.backup-*
+*.backup.*
+*.before-*
+*.bak
+*.orig
+
+# Local environment backup files
+.env*.backup
+.env*.backup-*
