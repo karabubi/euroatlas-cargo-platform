@@ -47,41 +47,45 @@ export class VehiclesService {
       }
     }
 
-    const vehicleNo = await this.generateVehicleNumber();
-
     try {
-      return await this.prisma.vehicle.create({
-        data: {
-          vehicleNo,
-          shipmentId: createVehicleDto.shipmentId,
-          vin: normalizedVin,
-          make: createVehicleDto.make.trim(),
-          model: createVehicleDto.model.trim(),
-          year: createVehicleDto.year,
-          color: this.normalizeOptionalText(createVehicleDto.color),
-          vehicleType: this.normalizeOptionalText(createVehicleDto.vehicleType),
-          fuelType: this.normalizeOptionalText(createVehicleDto.fuelType),
-          transmission: this.normalizeOptionalText(
-            createVehicleDto.transmission,
-          ),
-          purchasePrice:
-            createVehicleDto.purchasePrice === undefined
-              ? undefined
-              : new Prisma.Decimal(createVehicleDto.purchasePrice),
-          declaredValue:
-            createVehicleDto.declaredValue === undefined
-              ? undefined
-              : new Prisma.Decimal(createVehicleDto.declaredValue),
-          hasKeys: createVehicleDto.hasKeys,
-          isRunning: createVehicleDto.isRunning,
-          hasDamage: createVehicleDto.hasDamage,
-          damageDescription: this.normalizeOptionalText(
-            createVehicleDto.damageDescription,
-          ),
-          notes: this.normalizeOptionalText(createVehicleDto.notes),
-          isActive: createVehicleDto.isActive,
-        },
-        include: this.vehicleInclude,
+      return await this.prisma.$transaction(async (transaction) => {
+        const vehicleNo = await this.allocateVehicleNumber(transaction);
+
+        return transaction.vehicle.create({
+          data: {
+            vehicleNo,
+            shipmentId: createVehicleDto.shipmentId,
+            vin: normalizedVin,
+            make: createVehicleDto.make.trim(),
+            model: createVehicleDto.model.trim(),
+            year: createVehicleDto.year,
+            color: this.normalizeOptionalText(createVehicleDto.color),
+            vehicleType: this.normalizeOptionalText(
+              createVehicleDto.vehicleType,
+            ),
+            fuelType: this.normalizeOptionalText(createVehicleDto.fuelType),
+            transmission: this.normalizeOptionalText(
+              createVehicleDto.transmission,
+            ),
+            purchasePrice:
+              createVehicleDto.purchasePrice === undefined
+                ? undefined
+                : new Prisma.Decimal(createVehicleDto.purchasePrice),
+            declaredValue:
+              createVehicleDto.declaredValue === undefined
+                ? undefined
+                : new Prisma.Decimal(createVehicleDto.declaredValue),
+            hasKeys: createVehicleDto.hasKeys,
+            isRunning: createVehicleDto.isRunning,
+            hasDamage: createVehicleDto.hasDamage,
+            damageDescription: this.normalizeOptionalText(
+              createVehicleDto.damageDescription,
+            ),
+            notes: this.normalizeOptionalText(createVehicleDto.notes),
+            isActive: createVehicleDto.isActive,
+          },
+          include: this.vehicleInclude,
+        });
       });
     } catch (error) {
       this.handlePrismaError(error);
@@ -262,30 +266,43 @@ export class VehiclesService {
     }
   }
 
-  private async generateVehicleNumber(): Promise<string> {
-    const year = new Date().getFullYear();
+  private async allocateVehicleNumber(
+    transaction: Prisma.TransactionClient,
+  ): Promise<string> {
+    const year = new Date().getUTCFullYear();
 
-    const lastVehicle = await this.prisma.vehicle.findFirst({
-      where: {
-        vehicleNo: {
-          startsWith: `VEH-${year}-`,
-        },
-      },
-      orderBy: {
-        vehicleNo: 'desc',
-      },
-      select: {
-        vehicleNo: true,
-      },
-    });
+    const rows = await transaction.$queryRaw<Array<{ lastValue: number }>>`
+      INSERT INTO "VehicleNumberCounter" (
+        "year",
+        "lastValue",
+        "createdAt",
+        "updatedAt"
+      )
+      VALUES (
+        ${year},
+        1,
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+      )
+      ON CONFLICT ("year")
+      DO UPDATE SET
+        "lastValue" =
+          "VehicleNumberCounter"."lastValue" + 1,
+        "updatedAt" = CURRENT_TIMESTAMP
+      WHERE
+        "VehicleNumberCounter"."lastValue" < 9999
+      RETURNING "lastValue"
+    `;
 
-    const lastSequence = lastVehicle
-      ? Number(lastVehicle.vehicleNo.split('-').at(-1))
-      : 0;
+    const counter = rows[0];
 
-    const nextSequence = Number.isFinite(lastSequence) ? lastSequence + 1 : 1;
+    if (!counter) {
+      throw new ConflictException(
+        `Vehicle number sequence for ${year} is exhausted.`,
+      );
+    }
 
-    return `VEH-${year}-${String(nextSequence).padStart(4, '0')}`;
+    return `VEH-${year}-${String(counter.lastValue).padStart(4, '0')}`;
   }
 
   private normalizeOptionalText(value?: string): string | null | undefined {
