@@ -20,19 +20,39 @@ import type {
   VehicleStatus,
 } from '@/types/vehicle';
 
-const vehicleStatuses: VehicleStatus[] = [
-  'REGISTERED',
-  'RECEIVED',
-  'INSPECTED',
-  'READY_FOR_LOADING',
-  'LOADED',
-  'IN_TRANSIT',
-  'ARRIVED',
-  'CUSTOMS_CLEARANCE',
-  'READY_FOR_DELIVERY',
-  'DELIVERED',
-  'CANCELLED',
-];
+const nextVehicleStatus: Partial<
+  Record<VehicleStatus, VehicleStatus>
+> = {
+  REGISTERED: 'RECEIVED',
+  RECEIVED: 'INSPECTED',
+  INSPECTED: 'READY_FOR_LOADING',
+  READY_FOR_LOADING: 'LOADED',
+  LOADED: 'IN_TRANSIT',
+  IN_TRANSIT: 'ARRIVED',
+  ARRIVED: 'CUSTOMS_CLEARANCE',
+  CUSTOMS_CLEARANCE: 'READY_FOR_DELIVERY',
+  READY_FOR_DELIVERY: 'DELIVERED',
+};
+
+function allowedVehicleStatuses(
+  currentStatus: VehicleStatus,
+): VehicleStatus[] {
+  const nextStatus =
+    nextVehicleStatus[currentStatus];
+
+  if (
+    currentStatus === 'DELIVERED' ||
+    currentStatus === 'CANCELLED'
+  ) {
+    return [currentStatus];
+  }
+
+  return [
+    currentStatus,
+    ...(nextStatus ? [nextStatus] : []),
+    'CANCELLED',
+  ];
+}
 
 function formatStatus(status: VehicleStatus): string {
   return status
@@ -278,7 +298,9 @@ export default function EditVehiclePage() {
                 }
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
               >
-                {vehicleStatuses.map(
+                {allowedVehicleStatuses(
+                  vehicle.status,
+                ).map(
                   (vehicleStatus) => (
                     <option
                       key={vehicleStatus}

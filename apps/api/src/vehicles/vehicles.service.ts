@@ -165,6 +165,17 @@ export class VehiclesService {
   }
 
   async update(id: string, updateVehicleDto: UpdateVehicleDto) {
+    const currentVehicle = await this.findOne(id);
+
+    if (
+      updateVehicleDto.status !== undefined &&
+      updateVehicleDto.status !== currentVehicle.status
+    ) {
+      this.assertValidStatusTransition(
+        currentVehicle.status,
+        updateVehicleDto.status,
+      );
+    }
     await this.findOne(id);
 
     if (updateVehicleDto.shipmentId) {
@@ -264,6 +275,40 @@ export class VehiclesService {
     } catch (error) {
       this.handlePrismaError(error);
     }
+  }
+
+  private assertValidStatusTransition(
+    currentStatus: VehicleStatus,
+    nextStatus: VehicleStatus,
+  ): void {
+    if (currentStatus === nextStatus) {
+      return;
+    }
+
+    const allowedTransitions: Record<VehicleStatus, VehicleStatus[]> = {
+      REGISTERED: [VehicleStatus.RECEIVED, VehicleStatus.CANCELLED],
+      RECEIVED: [VehicleStatus.INSPECTED, VehicleStatus.CANCELLED],
+      INSPECTED: [VehicleStatus.READY_FOR_LOADING, VehicleStatus.CANCELLED],
+      READY_FOR_LOADING: [VehicleStatus.LOADED, VehicleStatus.CANCELLED],
+      LOADED: [VehicleStatus.IN_TRANSIT, VehicleStatus.CANCELLED],
+      IN_TRANSIT: [VehicleStatus.ARRIVED, VehicleStatus.CANCELLED],
+      ARRIVED: [VehicleStatus.CUSTOMS_CLEARANCE, VehicleStatus.CANCELLED],
+      CUSTOMS_CLEARANCE: [
+        VehicleStatus.READY_FOR_DELIVERY,
+        VehicleStatus.CANCELLED,
+      ],
+      READY_FOR_DELIVERY: [VehicleStatus.DELIVERED, VehicleStatus.CANCELLED],
+      DELIVERED: [],
+      CANCELLED: [],
+    };
+
+    if (allowedTransitions[currentStatus].includes(nextStatus)) {
+      return;
+    }
+
+    throw new BadRequestException(
+      `Vehicle status cannot change from ${currentStatus} to ${nextStatus}.`,
+    );
   }
 
   private async allocateVehicleNumber(
