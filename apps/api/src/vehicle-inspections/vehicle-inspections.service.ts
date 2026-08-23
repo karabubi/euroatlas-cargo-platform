@@ -7,6 +7,8 @@ import {
   InspectionApprovalStatus,
   InspectionStatus,
   Prisma,
+  InspectionType,
+  VehicleStatus,
 } from '../../generated/prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -347,6 +349,18 @@ export class VehicleInspectionsService {
     const approvalNote = this.optionalText(note);
 
     return this.prisma.$transaction(async (transaction) => {
+      if (inspection.type === InspectionType.RECEIVING) {
+        await transaction.vehicle.updateMany({
+          where: {
+            id: inspection.vehicleId,
+            status: VehicleStatus.RECEIVED,
+          },
+          data: {
+            status: VehicleStatus.INSPECTED,
+          },
+        });
+      }
+
       await transaction.inspectionApprovalHistory.create({
         data: {
           inspectionId: id,
