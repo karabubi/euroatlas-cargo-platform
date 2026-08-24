@@ -1089,6 +1089,36 @@ export class ShipmentsService {
       : new Date();
 
     const result = await this.prisma.$transaction(async (transaction) => {
+      const activeVehicleCount = await transaction.vehicle.count({
+        where: {
+          shipmentId: id,
+          isActive: true,
+        },
+      });
+
+      if (activeVehicleCount === 0) {
+        throw new ConflictException(
+          'A shipment must contain at least one active vehicle before arrival can be recorded.',
+        );
+      }
+
+      const arrivedVehicles = await transaction.vehicle.updateMany({
+        where: {
+          shipmentId: id,
+          isActive: true,
+          status: VehicleStatus.IN_TRANSIT,
+        },
+        data: {
+          status: VehicleStatus.ARRIVED,
+        },
+      });
+
+      if (arrivedVehicles.count !== activeVehicleCount) {
+        throw new ConflictException(
+          'All active shipment vehicles must be IN_TRANSIT before the shipment can be marked ARRIVED.',
+        );
+      }
+
       const updatedShipment = await transaction.shipment.update({
         where: {
           id,
