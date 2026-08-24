@@ -983,6 +983,38 @@ export class ShipmentsService {
         }
       }
 
+      if (dto.status === ShipmentStatus.IN_TRANSIT) {
+        const activeVehicleCount = await transaction.vehicle.count({
+          where: {
+            shipmentId: id,
+            isActive: true,
+          },
+        });
+
+        if (activeVehicleCount === 0) {
+          throw new ConflictException(
+            'A shipment must contain at least one active vehicle before it can enter transit.',
+          );
+        }
+
+        const transitVehicles = await transaction.vehicle.updateMany({
+          where: {
+            shipmentId: id,
+            isActive: true,
+            status: VehicleStatus.LOADED,
+          },
+          data: {
+            status: VehicleStatus.IN_TRANSIT,
+          },
+        });
+
+        if (transitVehicles.count !== activeVehicleCount) {
+          throw new ConflictException(
+            'All active shipment vehicles must be LOADED before the shipment can enter transit.',
+          );
+        }
+      }
+
       const updatedShipment = await transaction.shipment.update({
         where: {
           id,

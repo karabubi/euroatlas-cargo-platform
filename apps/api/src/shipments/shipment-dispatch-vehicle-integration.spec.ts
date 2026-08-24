@@ -201,10 +201,16 @@ describe('Shipment dispatch vehicle loading integration', () => {
     );
   });
 
-  it('does not apply READY_FOR_LOADING -> LOADED vehicle update during shipment LOADED -> IN_TRANSIT', async () => {
+  it('advances LOADED vehicles to IN_TRANSIT with shipment dispatch', async () => {
     prisma.shipment.findUnique.mockResolvedValue({
       ...baseShipment,
       status: ShipmentStatus.LOADED,
+    });
+
+    transaction.vehicle.count.mockResolvedValue(2);
+
+    transaction.vehicle.updateMany.mockResolvedValue({
+      count: 2,
     });
 
     await service.dispatch(shipmentId, {
@@ -212,9 +218,23 @@ describe('Shipment dispatch vehicle loading integration', () => {
       location: 'Mediterranean Sea',
     });
 
-    expect(transaction.vehicle.count).not.toHaveBeenCalled();
+    expect(transaction.vehicle.count).toHaveBeenCalledWith({
+      where: {
+        shipmentId,
+        isActive: true,
+      },
+    });
 
-    expect(transaction.vehicle.updateMany).not.toHaveBeenCalled();
+    expect(transaction.vehicle.updateMany).toHaveBeenCalledWith({
+      where: {
+        shipmentId,
+        isActive: true,
+        status: VehicleStatus.LOADED,
+      },
+      data: {
+        status: VehicleStatus.IN_TRANSIT,
+      },
+    });
 
     expect(transaction.shipment.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -428,5 +448,321 @@ describe('Shipment dispatch vehicle loading hardening', () => {
     expect(transaction.vehicle.count).toHaveBeenCalledTimes(1);
 
     expect(transaction.vehicle.updateMany).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Shipment dispatch vehicle transit integration', () => {
+  const shipmentId = 'shipment-transit-integration';
+
+  const shipment = {
+    id: shipmentId,
+    shipmentNo: 'EAC-TRANSIT-TEST',
+    customerId: 'customer-transit',
+    status: ShipmentStatus.LOADED,
+    originCountry: 'Germany',
+    destinationCountry: 'Libya',
+    isActive: true,
+  };
+
+  function createTransitHarness({
+    activeCount = 2,
+    updatedCount = 2,
+  }: {
+    activeCount?: number;
+    updatedCount?: number;
+  } = {}) {
+    const transaction = {
+      vehicle: {
+        count: jest.fn().mockResolvedValue(activeCount),
+        updateMany: jest.fn().mockResolvedValue({
+          count: updatedCount,
+        }),
+      },
+      shipment: {
+        update: jest
+          .fn()
+          .mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+            Promise.resolve({
+              ...shipment,
+              ...data,
+            }),
+          ),
+      },
+      shipmentTracking: {
+        create: jest.fn().mockResolvedValue({
+          id: 'tracking-transit-test',
+          shipmentId,
+          status: ShipmentStatus.IN_TRANSIT,
+        }),
+      },
+    };
+
+    const prisma = {
+      shipment: {
+        findUnique: jest.fn().mockResolvedValue(shipment),
+      },
+      $transaction: jest.fn(
+        (callback: (tx: typeof transaction) => Promise<unknown>) =>
+          callback(transaction),
+      ),
+    };
+
+    const service = new ShipmentsService(prisma as unknown as PrismaService);
+
+    jest
+      .spyOn(
+        service as unknown as {
+          assertReadyForStatus: (
+            id: string,
+            status: ShipmentStatus,
+          ) => Promise<void>;
+        },
+        'assertReadyForStatus',
+      )
+      .mockResolvedValue();
+
+    jest
+      .spyOn(
+        service as unknown as {
+          notifyShipmentStatusChange: (id: string) => Promise<void>;
+        },
+        'notifyShipmentStatusChange',
+      )
+      .mockResolvedValue();
+
+    return {
+      service,
+      prisma,
+      transaction,
+    };
+  }
+
+  it('moves all active LOADED vehicles to IN_TRANSIT', async () => {
+    const { service, transaction } = createTransitHarness();
+
+    const result = await service.dispatch(shipmentId, {
+      status: ShipmentStatus.IN_TRANSIT,
+      location: 'Mediterranean Sea',
+      dispatchedBy: 'Port Operations',
+    });
+
+    expect(transaction.vehicle.count).toHaveBeenCalledWith({
+      where: {
+        shipmentId,
+        isActive: true,
+      },
+    });
+
+    expect(transaction.vehicle.updateMany).toHaveBeenCalledWith({
+      where: {
+        shipmentId,
+        isActive: true,
+        status: VehicleStatus.LOADED,
+      },
+      data: {
+        status: VehicleStatus.IN_TRANSIT,
+      },
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        shipment: expect.objectContaining({
+          status: ShipmentStatus.IN_TRANSIT,
+        }),
+      }),
+    );
+  });
+
+  it('rejects IN_TRANSIT when shipment has no active vehicles', async () => {
+    const { service, transaction } = createTransitHarness({
+      activeCount: 0,
+      updatedCount: 0,
+    });
+
+    await expect(
+      service.dispatch(shipmentId, {
+        status: ShipmentStatus.IN_TRANSIT,
+        location: 'Mediterranean Sea',
+      }),
+    ).rejects.toThrow(
+      'A shipment must contain at least one active vehicle before it can enter transit.',
+    );
+
+    expect(transaction.shipment.update).not.toHaveBeenCalled();
+
+    expect(transaction.shipmentTracking.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects IN_TRANSIT when any active vehicle is not LOADED', async () => {
+    const { service, transaction } = createTransitHarness({
+      activeCount: 3,
+      updatedCount: 2,
+    });
+
+    await expect(
+      service.dispatch(shipmentId, {
+        status: ShipmentStatus.IN_TRANSIT,
+        location: 'Mediterranean Sea',
+      }),
+    ).rejects.toThrow(
+      'All active shipment vehicles must be LOADED before the shipment can enter transit.',
+    );
+
+    expect(transaction.shipment.update).not.toHaveBeenCalled();
+
+    expect(transaction.shipmentTracking.create).not.toHaveBeenCalled();
+  });
+
+  it('ignores inactive vehicles for IN_TRANSIT eligibility', async () => {
+    const { service, transaction } = createTransitHarness({
+      activeCount: 2,
+      updatedCount: 2,
+    });
+
+    await service.dispatch(shipmentId, {
+      status: ShipmentStatus.IN_TRANSIT,
+      location: 'Mediterranean Sea',
+    });
+
+    expect(transaction.vehicle.count).toHaveBeenCalledWith({
+      where: {
+        shipmentId,
+        isActive: true,
+      },
+    });
+
+    expect(transaction.vehicle.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          shipmentId,
+          isActive: true,
+          status: VehicleStatus.LOADED,
+        },
+      }),
+    );
+  });
+
+  it('keeps vehicle transit, shipment transit and tracking in one transaction', async () => {
+    const { service, prisma, transaction } = createTransitHarness();
+
+    await service.dispatch(shipmentId, {
+      status: ShipmentStatus.IN_TRANSIT,
+      location: 'Mediterranean Sea',
+    });
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+
+    expect(transaction.vehicle.updateMany).toHaveBeenCalledTimes(1);
+
+    expect(transaction.shipment.update).toHaveBeenCalledTimes(1);
+
+    expect(transaction.shipmentTracking.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops shipment and tracking writes when vehicle transit update fails', async () => {
+    const { service, transaction } = createTransitHarness();
+
+    transaction.vehicle.updateMany.mockRejectedValue(
+      new Error('vehicle transit update failed'),
+    );
+
+    await expect(
+      service.dispatch(shipmentId, {
+        status: ShipmentStatus.IN_TRANSIT,
+        location: 'Mediterranean Sea',
+      }),
+    ).rejects.toThrow('vehicle transit update failed');
+
+    expect(transaction.shipment.update).not.toHaveBeenCalled();
+
+    expect(transaction.shipmentTracking.create).not.toHaveBeenCalled();
+  });
+
+  it('keeps transit operations in eligibility-update-shipment-tracking order', async () => {
+    const { service, transaction } = createTransitHarness();
+
+    await service.dispatch(shipmentId, {
+      status: ShipmentStatus.IN_TRANSIT,
+      location: 'Mediterranean Sea',
+    });
+
+    const countOrder = transaction.vehicle.count.mock.invocationCallOrder[0];
+
+    const vehicleUpdateOrder =
+      transaction.vehicle.updateMany.mock.invocationCallOrder[0];
+
+    const shipmentUpdateOrder =
+      transaction.shipment.update.mock.invocationCallOrder[0];
+
+    const trackingOrder =
+      transaction.shipmentTracking.create.mock.invocationCallOrder[0];
+
+    expect(countOrder).toBeLessThan(vehicleUpdateOrder);
+
+    expect(vehicleUpdateOrder).toBeLessThan(shipmentUpdateOrder);
+
+    expect(shipmentUpdateOrder).toBeLessThan(trackingOrder);
+  });
+
+  it('propagates shipment transit failure before tracking creation', async () => {
+    const { service, transaction } = createTransitHarness();
+
+    transaction.shipment.update.mockRejectedValue(
+      new Error('shipment transit update failed'),
+    );
+
+    await expect(
+      service.dispatch(shipmentId, {
+        status: ShipmentStatus.IN_TRANSIT,
+        location: 'Mediterranean Sea',
+      }),
+    ).rejects.toThrow('shipment transit update failed');
+
+    expect(transaction.vehicle.updateMany).toHaveBeenCalledTimes(1);
+
+    expect(transaction.shipmentTracking.create).not.toHaveBeenCalled();
+  });
+
+  it('propagates transit tracking failure from the transaction', async () => {
+    const { service, transaction } = createTransitHarness();
+
+    transaction.shipmentTracking.create.mockRejectedValue(
+      new Error('transit tracking creation failed'),
+    );
+
+    await expect(
+      service.dispatch(shipmentId, {
+        status: ShipmentStatus.IN_TRANSIT,
+        location: 'Mediterranean Sea',
+      }),
+    ).rejects.toThrow('transit tracking creation failed');
+
+    expect(transaction.vehicle.updateMany).toHaveBeenCalledTimes(1);
+
+    expect(transaction.shipment.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not write shipment when transit compare-and-set is incomplete', async () => {
+    const { service, transaction } = createTransitHarness({
+      activeCount: 3,
+      updatedCount: 2,
+    });
+
+    await expect(
+      service.dispatch(shipmentId, {
+        status: ShipmentStatus.IN_TRANSIT,
+        location: 'Mediterranean Sea',
+      }),
+    ).rejects.toThrow(
+      'All active shipment vehicles must be LOADED before the shipment can enter transit.',
+    );
+
+    expect(transaction.vehicle.count).toHaveBeenCalledTimes(1);
+
+    expect(transaction.vehicle.updateMany).toHaveBeenCalledTimes(1);
+
+    expect(transaction.shipment.update).not.toHaveBeenCalled();
+
+    expect(transaction.shipmentTracking.create).not.toHaveBeenCalled();
   });
 });
