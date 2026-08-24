@@ -277,11 +277,14 @@ model VehiclePhoto {
   category     VehiclePhotoCategory @default(OTHER)
   title        String?
   description  String?
-  originalName String
-  storedName   String
-  mimeType     String
-  size         Int
-  isPrimary    Boolean              @default(false)
+  originalName    String
+  storedName      String
+  mimeType        String
+  size            Int
+  storageProvider String             @default("LOCAL")
+  remoteUrl       String?
+  remotePublicId  String?
+  isPrimary       Boolean            @default(false)
   sortOrder    Int                  @default(0)
   uploadedBy   String?
   createdAt    DateTime             @default(now())

@@ -1,9 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
 import type { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
-import { randomUUID } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
-import { diskStorage } from 'multer';
-import { extname, join } from 'node:path';
+import { memoryStorage } from 'multer';
+import { join } from 'node:path';
+
+export const vehiclePhotosUploadDirectory = join(
+  process.cwd(),
+  'uploads',
+  'vehicle-photos',
+);
 
 const allowedMimeTypes = new Set([
   'image/jpeg',
@@ -13,28 +17,8 @@ const allowedMimeTypes = new Set([
   'image/heif',
 ]);
 
-export const vehiclePhotosUploadDirectory = join(
-  process.cwd(),
-  'uploads',
-  'vehicle-photos',
-);
-
-mkdirSync(vehiclePhotosUploadDirectory, {
-  recursive: true,
-});
-
 export const vehiclePhotoUploadOptions: MulterOptions = {
-  storage: diskStorage({
-    destination: vehiclePhotosUploadDirectory,
-
-    filename: (_request, file, callback) => {
-      const extension = extname(file.originalname).toLowerCase() || '.jpg';
-
-      const storedName = `${Date.now()}-${randomUUID()}${extension}`;
-
-      callback(null, storedName);
-    },
-  }),
+  storage: memoryStorage(),
 
   limits: {
     fileSize: 10 * 1024 * 1024,

@@ -3,10 +3,11 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { VehiclePhotosController } from './vehicle-photos.controller';
 import { VehiclePhotosService } from './vehicle-photos.service';
+import { CloudinaryStorageService } from './cloudinary-storage.service';
 
 @Module({
   imports: [PrismaModule],
   controllers: [VehiclePhotosController],
-  providers: [VehiclePhotosService],
+  providers: [VehiclePhotosService, CloudinaryStorageService],
 })
 export class VehiclePhotosModule {}

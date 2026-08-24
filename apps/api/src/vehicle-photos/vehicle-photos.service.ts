@@ -1,15 +1,30 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { unlink } from 'node:fs/promises';
-import { join } from 'node:path';
-
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { extname, join } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
+import { CloudinaryStorageService } from './cloudinary-storage.service';
 import { UpdateVehiclePhotoDto } from './dto/update-vehicle-photo.dto';
 import { UploadVehiclePhotoDto } from './dto/upload-vehicle-photo.dto';
 import { vehiclePhotosUploadDirectory } from './vehicle-photo-upload.config';
 
+type StoredVehiclePhoto = {
+  storageProvider: 'LOCAL' | 'CLOUDINARY';
+  storedName: string;
+  remoteUrl: string | null;
+  remotePublicId: string | null;
+};
+
 @Injectable()
 export class VehiclePhotosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cloudinaryStorage: CloudinaryStorageService,
+  ) {}
 
   async create(
     vehicleId: string,
@@ -21,7 +36,6 @@ export class VehiclePhotosService {
       where: {
         id: vehicleId,
       },
-
       select: {
         id: true,
         vehicleNo: true,
@@ -29,10 +43,16 @@ export class VehiclePhotosService {
     });
 
     if (!vehicle) {
-      await this.removePhysicalFile(file.filename);
-
       throw new NotFoundException(`Vehicle ${vehicleId} was not found.`);
     }
+
+    if (!file.buffer) {
+      throw new InternalServerErrorException(
+        'Vehicle photo upload buffer is missing.',
+      );
+    }
+
+    const stored = await this.storeUploadedFile(vehicleId, file);
 
     try {
       return await this.prisma.$transaction(async (transaction) => {
@@ -42,7 +62,6 @@ export class VehiclePhotosService {
               vehicleId,
               isPrimary: true,
             },
-
             data: {
               isPrimary: false,
             },
@@ -56,14 +75,16 @@ export class VehiclePhotosService {
             title: dto.title?.trim() || null,
             description: dto.description?.trim() || null,
             originalName: file.originalname,
-            storedName: file.filename,
+            storedName: stored.storedName,
             mimeType: file.mimetype,
             size: file.size,
+            storageProvider: stored.storageProvider,
+            remoteUrl: stored.remoteUrl,
+            remotePublicId: stored.remotePublicId,
             isPrimary: dto.isPrimary ?? false,
             sortOrder: dto.sortOrder ?? 0,
             uploadedBy: uploadedBy || null,
           },
-
           include: {
             vehicle: {
               select: {
@@ -77,7 +98,7 @@ export class VehiclePhotosService {
         });
       });
     } catch (error) {
-      await this.removePhysicalFile(file.filename);
+      await this.removeStoredFile(stored);
       throw error;
     }
   }
@@ -87,7 +108,6 @@ export class VehiclePhotosService {
       where: {
         id: vehicleId,
       },
-
       select: {
         id: true,
         vehicleNo: true,
@@ -105,7 +125,6 @@ export class VehiclePhotosService {
       where: {
         vehicleId,
       },
-
       orderBy: [
         {
           isPrimary: 'desc',
@@ -130,7 +149,6 @@ export class VehiclePhotosService {
       where: {
         id,
       },
-
       include: {
         vehicle: {
           select: {
@@ -164,7 +182,6 @@ export class VehiclePhotosService {
               not: id,
             },
           },
-
           data: {
             isPrimary: false,
           },
@@ -175,7 +192,6 @@ export class VehiclePhotosService {
         where: {
           id,
         },
-
         data: {
           ...(dto.category !== undefined && {
             category: dto.category,
@@ -197,7 +213,6 @@ export class VehiclePhotosService {
             sortOrder: dto.sortOrder,
           }),
         },
-
         include: {
           vehicle: {
             select: {
@@ -215,13 +230,19 @@ export class VehiclePhotosService {
   async remove(id: string) {
     const photo = await this.findOne(id);
 
+    if (photo.storageProvider === 'CLOUDINARY' && photo.remotePublicId) {
+      await this.cloudinaryStorage.deleteVehiclePhoto(photo.remotePublicId);
+    }
+
+    if (photo.storageProvider !== 'CLOUDINARY') {
+      await this.removePhysicalFile(photo.storedName);
+    }
+
     await this.prisma.vehiclePhoto.delete({
       where: {
         id,
       },
     });
-
-    await this.removePhysicalFile(photo.storedName);
 
     return {
       message: 'Vehicle photo deleted successfully.',
@@ -229,16 +250,90 @@ export class VehiclePhotosService {
     };
   }
 
+  isCloudinaryPhoto(photo: {
+    storageProvider: string;
+    remoteUrl: string | null;
+  }): boolean {
+    return photo.storageProvider === 'CLOUDINARY' && Boolean(photo.remoteUrl);
+  }
+
+  getRemoteUrl(photo: {
+    storageProvider: string;
+    remoteUrl: string | null;
+  }): string {
+    if (photo.storageProvider !== 'CLOUDINARY' || !photo.remoteUrl) {
+      throw new InternalServerErrorException(
+        'Cloudinary vehicle photo URL is missing.',
+      );
+    }
+
+    return photo.remoteUrl;
+  }
+
   getFilePath(storedName: string) {
     return join(vehiclePhotosUploadDirectory, storedName);
   }
 
-  private async removePhysicalFile(storedName: string) {
+  private async storeUploadedFile(
+    vehicleId: string,
+    file: Express.Multer.File,
+  ): Promise<StoredVehiclePhoto> {
+    if (this.cloudinaryStorage.isConfigured()) {
+      const uploaded = await this.cloudinaryStorage.uploadVehiclePhoto(
+        file.buffer,
+        vehicleId,
+      );
+
+      return {
+        storageProvider: 'CLOUDINARY',
+        storedName: uploaded.publicId,
+        remoteUrl: uploaded.secureUrl,
+        remotePublicId: uploaded.publicId,
+      };
+    }
+
+    return this.storeLocalFile(file);
+  }
+
+  private async storeLocalFile(
+    file: Express.Multer.File,
+  ): Promise<StoredVehiclePhoto> {
+    await mkdir(vehiclePhotosUploadDirectory, {
+      recursive: true,
+    });
+
+    const extension = extname(file.originalname).toLowerCase() || '.jpg';
+
+    const storedName = `${Date.now()}-${randomUUID()}${extension}`;
+
+    await writeFile(this.getFilePath(storedName), file.buffer);
+
+    return {
+      storageProvider: 'LOCAL',
+      storedName,
+      remoteUrl: null,
+      remotePublicId: null,
+    };
+  }
+
+  private async removeStoredFile(stored: StoredVehiclePhoto): Promise<void> {
+    if (stored.storageProvider === 'CLOUDINARY' && stored.remotePublicId) {
+      await this.cloudinaryStorage.deleteVehiclePhoto(stored.remotePublicId);
+
+      return;
+    }
+
+    await this.removePhysicalFile(stored.storedName);
+  }
+
+  private async removePhysicalFile(storedName: string): Promise<void> {
     try {
       await unlink(this.getFilePath(storedName));
-    } catch (error) {
+    } catch (error: unknown) {
       const code =
-        error instanceof Error && 'code' in error ? String(error.code) : '';
+        error && typeof error === 'object' && 'code' in error
+          ? String((error as { code?: unknown }).code)
+          : '';
 
       if (code !== 'ENOENT') {
         throw error;
