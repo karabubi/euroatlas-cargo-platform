@@ -124,7 +124,7 @@ describe('Vehicle inspection approval vehicle-status integration', () => {
     expect(transaction.vehicleInspection.update).toHaveBeenCalledTimes(1);
   });
 
-  it('does not advance vehicle for PRE_LOADING approval', async () => {
+  it('advances INSPECTED vehicle to READY_FOR_LOADING when PRE_LOADING inspection is approved', async () => {
     prisma.vehicleInspection.findUnique.mockResolvedValue({
       ...baseInspection,
       type: InspectionType.PRE_LOADING,
@@ -132,7 +132,52 @@ describe('Vehicle inspection approval vehicle-status integration', () => {
 
     await service.approve(baseInspection.id, user);
 
-    expect(transaction.vehicle.updateMany).not.toHaveBeenCalled();
+    expect(transaction.vehicle.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: baseInspection.vehicleId,
+        status: VehicleStatus.INSPECTED,
+      },
+      data: {
+        status: VehicleStatus.READY_FOR_LOADING,
+      },
+    });
+
+    expect(transaction.inspectionApprovalHistory.create).toHaveBeenCalled();
+
+    expect(transaction.vehicleInspection.update).toHaveBeenCalled();
+  });
+
+  it('uses INSPECTED as the compare-and-set guard for PRE_LOADING approval', async () => {
+    prisma.vehicleInspection.findUnique.mockResolvedValue({
+      ...baseInspection,
+      type: InspectionType.PRE_LOADING,
+    });
+
+    transaction.vehicle.updateMany.mockResolvedValue({
+      count: 0,
+    });
+
+    const result = await service.approve(baseInspection.id, user);
+
+    expect(transaction.vehicle.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: baseInspection.vehicleId,
+        status: VehicleStatus.INSPECTED,
+      },
+      data: {
+        status: VehicleStatus.READY_FOR_LOADING,
+      },
+    });
+
+    expect(transaction.inspectionApprovalHistory.create).toHaveBeenCalled();
+
+    expect(transaction.vehicleInspection.update).toHaveBeenCalled();
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        approvalStatus: InspectionApprovalStatus.APPROVED,
+      }),
+    );
   });
 
   it('does not advance vehicle for GENERAL approval', async () => {
@@ -342,5 +387,131 @@ describe('Vehicle inspection approval integration edge cases', () => {
     ).rejects.toThrow('approval history failed');
 
     expect(transaction.vehicleInspection.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('PRE_LOADING approval integration edge cases', () => {
+  const user = {
+    id: 'admin-preload',
+    email: 'admin@euroatlascargo.com',
+    firstName: 'Admin',
+    lastName: 'User',
+  };
+
+  const preLoadingInspection = {
+    id: 'inspection-preloading',
+    inspectionNo: 'INS-PRELOAD-0001',
+    vehicleId: 'vehicle-preloading',
+    type: InspectionType.PRE_LOADING,
+    status: InspectionStatus.COMPLETED,
+    approvalStatus: InspectionApprovalStatus.PENDING,
+    approvalNote: null,
+    approvedBy: null,
+    approvedAt: null,
+    rejectedBy: null,
+    rejectedAt: null,
+  };
+
+  function createHarness(vehicleUpdateCount = 1) {
+    const transaction = {
+      vehicle: {
+        updateMany: jest.fn().mockResolvedValue({
+          count: vehicleUpdateCount,
+        }),
+      },
+      inspectionApprovalHistory: {
+        create: jest.fn().mockResolvedValue({
+          id: 'preloading-history',
+        }),
+      },
+      vehicleInspection: {
+        update: jest
+          .fn()
+          .mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+            Promise.resolve({
+              ...preLoadingInspection,
+              ...data,
+            }),
+          ),
+      },
+    };
+
+    const prisma = {
+      vehicleInspection: {
+        findUnique: jest.fn().mockResolvedValue(preLoadingInspection),
+      },
+      $transaction: jest.fn(
+        (callback: (tx: typeof transaction) => Promise<unknown>) =>
+          callback(transaction),
+      ),
+    };
+
+    const service = new VehicleInspectionsService(prisma as never);
+
+    return {
+      service,
+      prisma,
+      transaction,
+    };
+  }
+
+  it('PRE_LOADING approval remains atomic when vehicle update fails', async () => {
+    const { service, transaction } = createHarness();
+
+    transaction.vehicle.updateMany.mockRejectedValue(
+      new Error('PRE_LOADING vehicle update failed'),
+    );
+
+    await expect(
+      service.approve(preLoadingInspection.id, user),
+    ).rejects.toThrow('PRE_LOADING vehicle update failed');
+
+    expect(transaction.inspectionApprovalHistory.create).not.toHaveBeenCalled();
+
+    expect(transaction.vehicleInspection.update).not.toHaveBeenCalled();
+  });
+
+  it('PRE_LOADING approval still succeeds when the guarded vehicle update matches zero rows', async () => {
+    const { service, transaction } = createHarness(0);
+
+    const result = await service.approve(preLoadingInspection.id, user);
+
+    expect(transaction.vehicle.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: preLoadingInspection.vehicleId,
+        status: VehicleStatus.INSPECTED,
+      },
+      data: {
+        status: VehicleStatus.READY_FOR_LOADING,
+      },
+    });
+
+    expect(transaction.inspectionApprovalHistory.create).toHaveBeenCalledTimes(
+      1,
+    );
+
+    expect(transaction.vehicleInspection.update).toHaveBeenCalledTimes(1);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        approvalStatus: InspectionApprovalStatus.APPROVED,
+      }),
+    );
+  });
+
+  it('PRE_LOADING approval uses the same transaction as approval history and inspection update', async () => {
+    const { service, prisma, transaction } = createHarness();
+
+    await service.approve(preLoadingInspection.id, user);
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+
+    expect(transaction.vehicle.updateMany).toHaveBeenCalledTimes(1);
+
+    expect(transaction.inspectionApprovalHistory.create).toHaveBeenCalledTimes(
+      1,
+    );
+
+    expect(transaction.vehicleInspection.update).toHaveBeenCalledTimes(1);
   });
 });

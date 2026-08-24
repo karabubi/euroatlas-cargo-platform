@@ -359,6 +359,16 @@ export class VehicleInspectionsService {
             status: VehicleStatus.INSPECTED,
           },
         });
+      } else if (inspection.type === InspectionType.PRE_LOADING) {
+        await transaction.vehicle.updateMany({
+          where: {
+            id: inspection.vehicleId,
+            status: VehicleStatus.INSPECTED,
+          },
+          data: {
+            status: VehicleStatus.READY_FOR_LOADING,
+          },
+        });
       }
 
       await transaction.inspectionApprovalHistory.create({
