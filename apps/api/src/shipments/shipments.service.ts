@@ -10,6 +10,7 @@ import {
   NotificationDeliveryStatus,
   ShipmentNotificationChannel,
   ShipmentStatus,
+  VehicleStatus,
 } from '../../generated/prisma/enums';
 import { isEmail } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
@@ -950,6 +951,38 @@ export class ShipmentsService {
       : new Date();
 
     const result = await this.prisma.$transaction(async (transaction) => {
+      if (dto.status === ShipmentStatus.LOADED) {
+        const activeVehicleCount = await transaction.vehicle.count({
+          where: {
+            shipmentId: id,
+            isActive: true,
+          },
+        });
+
+        if (activeVehicleCount === 0) {
+          throw new ConflictException(
+            'A shipment must contain at least one active vehicle before it can be loaded.',
+          );
+        }
+
+        const loadedVehicles = await transaction.vehicle.updateMany({
+          where: {
+            shipmentId: id,
+            isActive: true,
+            status: VehicleStatus.READY_FOR_LOADING,
+          },
+          data: {
+            status: VehicleStatus.LOADED,
+          },
+        });
+
+        if (loadedVehicles.count !== activeVehicleCount) {
+          throw new ConflictException(
+            'All active shipment vehicles must be READY_FOR_LOADING before the shipment can be loaded.',
+          );
+        }
+      }
+
       const updatedShipment = await transaction.shipment.update({
         where: {
           id,
