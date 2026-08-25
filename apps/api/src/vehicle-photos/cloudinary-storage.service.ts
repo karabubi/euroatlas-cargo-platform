@@ -19,6 +19,71 @@ type CloudinaryDeleteResult = {
 
 @Injectable()
 export class CloudinaryStorageService {
+  private formatCloudinaryError(error: unknown): string {
+    if (error instanceof Error) {
+      const candidate = error as Error & {
+        http_code?: unknown;
+        statusCode?: unknown;
+        error?: {
+          message?: unknown;
+          http_code?: unknown;
+        };
+      };
+
+      const nestedMessage =
+        typeof candidate.error?.message === 'string'
+          ? candidate.error.message
+          : null;
+
+      const httpCode =
+        typeof candidate.http_code === 'number'
+          ? candidate.http_code
+          : typeof candidate.error?.http_code === 'number'
+            ? candidate.error.http_code
+            : typeof candidate.statusCode === 'number'
+              ? candidate.statusCode
+              : null;
+
+      const message =
+        nestedMessage || candidate.message || 'Unknown Cloudinary error';
+
+      return httpCode === null
+        ? message
+        : `${message} (Cloudinary HTTP ${httpCode})`;
+    }
+
+    if (typeof error === 'object' && error !== null) {
+      const candidate = error as {
+        message?: unknown;
+        http_code?: unknown;
+        error?: {
+          message?: unknown;
+          http_code?: unknown;
+        };
+      };
+
+      const message =
+        typeof candidate.error?.message === 'string'
+          ? candidate.error.message
+          : typeof candidate.message === 'string'
+            ? candidate.message
+            : 'Unknown Cloudinary error';
+
+      const httpCode =
+        typeof candidate.http_code === 'number'
+          ? candidate.http_code
+          : typeof candidate.error?.http_code === 'number'
+            ? candidate.error.http_code
+            : null;
+
+      return httpCode === null
+        ? message
+        : `${message} (Cloudinary HTTP ${httpCode})`;
+    }
+
+    return 'Unknown Cloudinary error';
+  }
+
   constructor() {
     this.configure();
   }
@@ -92,10 +157,7 @@ export class CloudinaryStorageService {
         publicId,
       };
     } catch (error: unknown) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Unknown Cloudinary upload error.';
+      const message = this.formatCloudinaryError(error);
 
       throw new InternalServerErrorException(
         `Cloudinary upload probe failed: ${message}`,
