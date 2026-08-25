@@ -53,6 +53,11 @@ export class VehiclePhotosController {
     return this.vehiclePhotosService.getCloudinaryUploadHealth();
   }
 
+  @Get('storage/cloudinary/raw-upload-health')
+  cloudinaryRawUploadHealth() {
+    return this.vehiclePhotosService.getCloudinaryRawUploadHealth();
+  }
+
   @Post(':id/repair-cloudinary')
   @UseInterceptors(FileInterceptor('file', vehiclePhotoUploadOptions))
   repairCloudinary(

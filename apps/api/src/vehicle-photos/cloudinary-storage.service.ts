@@ -131,6 +131,93 @@ export class CloudinaryStorageService {
     }
   }
 
+  async verifyRawUpload(): Promise<{
+    status: number;
+    ok: boolean;
+    xCldError: string | null;
+    cloudName: string;
+    responseMessage: string | null;
+    apiHost: string;
+  }> {
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim();
+
+    const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
+
+    const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim();
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      throw new InternalServerErrorException('Cloudinary is not configured.');
+    }
+
+    const apiHost =
+      process.env.CLOUDINARY_UPLOAD_PREFIX?.trim() ||
+      'https://api.cloudinary.com';
+
+    const url = `${apiHost}/v1_1/${encodeURIComponent(cloudName)}/image/upload`;
+
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ' +
+        'AAAADUlEQVR42mNk+M/wHwAF/gL+3P8AAAAASUVORK5CYII=',
+      'base64',
+    );
+
+    const form = new FormData();
+
+    form.append(
+      'file',
+      new Blob([png], {
+        type: 'image/png',
+      }),
+      'cloudinary-diagnostic.png',
+    );
+
+    form.append('folder', 'euroatlas/diagnostic');
+
+    const basicAuth = Buffer.from(`${apiKey}:${apiSecret}`, 'utf8').toString(
+      'base64',
+    );
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${basicAuth}`,
+      },
+      body: form,
+    });
+
+    const xCldError = response.headers.get('x-cld-error');
+
+    const bodyText = await response.text();
+
+    let responseMessage: string | null = null;
+
+    try {
+      const parsed = JSON.parse(bodyText) as {
+        error?: {
+          message?: unknown;
+        };
+        message?: unknown;
+      };
+
+      if (typeof parsed.error?.message === 'string') {
+        responseMessage = parsed.error.message;
+      } else if (typeof parsed.message === 'string') {
+        responseMessage = parsed.message;
+      }
+    } catch {
+      responseMessage = bodyText.slice(0, 300) || null;
+    }
+
+    return {
+      status: response.status,
+      ok: response.ok,
+      xCldError,
+      cloudName,
+      responseMessage,
+      apiHost,
+    };
+  }
+
   async verifyUpload(): Promise<{
     uploadSucceeded: boolean;
     deleteSucceeded: boolean;
