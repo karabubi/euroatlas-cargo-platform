@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -226,85 +225,6 @@ export class VehiclePhotosService {
         },
       });
     });
-  }
-
-  getCloudinaryHealth() {
-    return this.cloudinaryStorage.verifyConnection();
-  }
-
-  getCloudinaryUploadHealth() {
-    return this.cloudinaryStorage.verifyUpload();
-  }
-
-  getCloudinaryRawUploadHealth() {
-    return this.cloudinaryStorage.verifyRawUpload();
-  }
-
-  async repairLegacyPhoto(
-    id: string,
-    file: Express.Multer.File,
-    expectedSize?: number,
-  ) {
-    const photo = await this.findOne(id);
-
-    if (expectedSize !== undefined && photo.size !== expectedSize) {
-      throw new BadRequestException(
-        `Vehicle photo record size mismatch: expected ${expectedSize}, actual ${photo.size}.`,
-      );
-    }
-
-    if (expectedSize !== undefined && file.size !== expectedSize) {
-      throw new BadRequestException(
-        `Uploaded file size mismatch: expected ${expectedSize}, actual ${file.size}.`,
-      );
-    }
-
-    if (photo.storageProvider === 'CLOUDINARY') {
-      throw new InternalServerErrorException(
-        'Vehicle photo is already stored in Cloudinary.',
-      );
-    }
-
-    if (!file.buffer) {
-      throw new InternalServerErrorException(
-        'Vehicle photo repair buffer is missing.',
-      );
-    }
-
-    const uploaded = await this.cloudinaryStorage.uploadVehiclePhoto(
-      file.buffer,
-      photo.vehicleId,
-    );
-
-    try {
-      return await this.prisma.vehiclePhoto.update({
-        where: {
-          id,
-        },
-        data: {
-          storageProvider: 'CLOUDINARY',
-          storedName: uploaded.publicId,
-          remoteUrl: uploaded.secureUrl,
-          remotePublicId: uploaded.publicId,
-          mimeType: file.mimetype,
-          size: file.size,
-        },
-        include: {
-          vehicle: {
-            select: {
-              id: true,
-              vehicleNo: true,
-              make: true,
-              model: true,
-            },
-          },
-        },
-      });
-    } catch (error) {
-      await this.cloudinaryStorage.deleteVehiclePhoto(uploaded.publicId);
-
-      throw error;
-    }
   }
 
   async remove(id: string) {

@@ -7,7 +7,6 @@ import {
   Param,
   Patch,
   Post,
-  Query,
   Res,
   UploadedFile,
   UseInterceptors,
@@ -41,47 +40,6 @@ export class VehiclePhotosController {
   @Get('vehicle/:vehicleId')
   findByVehicle(@Param('vehicleId') vehicleId: string) {
     return this.vehiclePhotosService.findByVehicle(vehicleId);
-  }
-
-  @Get('storage/cloudinary/health')
-  cloudinaryHealth() {
-    return this.vehiclePhotosService.getCloudinaryHealth();
-  }
-
-  @Get('storage/cloudinary/upload-health')
-  cloudinaryUploadHealth() {
-    return this.vehiclePhotosService.getCloudinaryUploadHealth();
-  }
-
-  @Get('storage/cloudinary/raw-upload-health')
-  cloudinaryRawUploadHealth() {
-    return this.vehiclePhotosService.getCloudinaryRawUploadHealth();
-  }
-
-  @Post(':id/repair-cloudinary')
-  @UseInterceptors(FileInterceptor('file', vehiclePhotoUploadOptions))
-  repairCloudinary(
-    @Param('id') id: string,
-    @Query('expectedSize')
-    expectedSizeRaw: string | undefined,
-    @UploadedFile()
-    file?: Express.Multer.File,
-  ) {
-    if (!file) {
-      throw new BadRequestException('A vehicle image file is required.');
-    }
-
-    const expectedSize =
-      expectedSizeRaw === undefined ? undefined : Number(expectedSizeRaw);
-
-    if (
-      expectedSize !== undefined &&
-      (!Number.isInteger(expectedSize) || expectedSize <= 0)
-    ) {
-      throw new BadRequestException('expectedSize must be a positive integer.');
-    }
-
-    return this.vehiclePhotosService.repairLegacyPhoto(id, file, expectedSize);
   }
 
   @Get(':id/file')
