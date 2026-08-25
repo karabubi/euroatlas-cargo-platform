@@ -66,6 +66,43 @@ export class CloudinaryStorageService {
     }
   }
 
+  async verifyUpload(): Promise<{
+    uploadSucceeded: boolean;
+    deleteSucceeded: boolean;
+    publicId: string | null;
+  }> {
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ' +
+        'AAAADUlEQVR42mNk+M/wHwAF/gL+3P8AAAAASUVORK5CYII=',
+      'base64',
+    );
+
+    let publicId: string | null = null;
+
+    try {
+      const uploaded = await this.uploadVehiclePhoto(png, 'diagnostic');
+
+      publicId = uploaded.publicId;
+
+      await this.deleteVehiclePhoto(uploaded.publicId);
+
+      return {
+        uploadSucceeded: true,
+        deleteSucceeded: true,
+        publicId,
+      };
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unknown Cloudinary upload error.';
+
+      throw new InternalServerErrorException(
+        `Cloudinary upload probe failed: ${message}`,
+      );
+    }
+  }
+
   async uploadVehiclePhoto(
     buffer: Buffer,
     vehicleId: string,

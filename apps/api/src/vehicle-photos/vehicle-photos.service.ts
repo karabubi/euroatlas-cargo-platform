@@ -232,6 +232,10 @@ export class VehiclePhotosService {
     return this.cloudinaryStorage.verifyConnection();
   }
 
+  getCloudinaryUploadHealth() {
+    return this.cloudinaryStorage.verifyUpload();
+  }
+
   async repairLegacyPhoto(
     id: string,
     file: Express.Multer.File,
