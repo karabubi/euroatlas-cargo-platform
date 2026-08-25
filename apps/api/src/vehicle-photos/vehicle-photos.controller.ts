@@ -43,6 +43,11 @@ export class VehiclePhotosController {
     return this.vehiclePhotosService.findByVehicle(vehicleId);
   }
 
+  @Get('storage/cloudinary/health')
+  cloudinaryHealth() {
+    return this.vehiclePhotosService.getCloudinaryHealth();
+  }
+
   @Post(':id/repair-cloudinary')
   @UseInterceptors(FileInterceptor('file', vehiclePhotoUploadOptions))
   repairCloudinary(

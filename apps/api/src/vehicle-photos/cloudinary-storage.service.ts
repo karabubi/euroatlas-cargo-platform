@@ -31,6 +31,41 @@ export class CloudinaryStorageService {
     );
   }
 
+  async verifyConnection(): Promise<{
+    configured: boolean;
+    reachable: boolean;
+    cloudName: string | null;
+  }> {
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim() || null;
+
+    if (!this.isConfigured()) {
+      return {
+        configured: false,
+        reachable: false,
+        cloudName,
+      };
+    }
+
+    try {
+      await cloudinary.api.ping();
+
+      return {
+        configured: true,
+        reachable: true,
+        cloudName,
+      };
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unknown Cloudinary connection error.';
+
+      throw new InternalServerErrorException(
+        `Cloudinary connection failed: ${message}`,
+      );
+    }
+  }
+
   async uploadVehiclePhoto(
     buffer: Buffer,
     vehicleId: string,

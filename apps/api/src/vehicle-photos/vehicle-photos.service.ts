@@ -228,6 +228,10 @@ export class VehiclePhotosService {
     });
   }
 
+  getCloudinaryHealth() {
+    return this.cloudinaryStorage.verifyConnection();
+  }
+
   async repairLegacyPhoto(
     id: string,
     file: Express.Multer.File,
