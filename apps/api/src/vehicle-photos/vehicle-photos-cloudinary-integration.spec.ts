@@ -256,6 +256,11 @@ describe('vehicle photo controller Cloudinary compatibility', () => {
 
     await controller.viewFile('photo-1', response);
 
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'Cross-Origin-Resource-Policy',
+      'cross-origin',
+    );
+
     expect(response.redirect).toHaveBeenCalledWith(302, remoteUrl);
 
     expect(response.sendFile).not.toHaveBeenCalled();
@@ -279,6 +284,11 @@ describe('vehicle photo controller Cloudinary compatibility', () => {
     const response = responseMock();
 
     await controller.download('photo-1', response);
+
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'Cross-Origin-Resource-Policy',
+      'cross-origin',
+    );
 
     expect(response.redirect).toHaveBeenCalledWith(302, remoteUrl);
 

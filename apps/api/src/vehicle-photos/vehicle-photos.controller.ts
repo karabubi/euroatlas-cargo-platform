@@ -46,6 +46,8 @@ export class VehiclePhotosController {
   async viewFile(@Param('id') id: string, @Res() response: Response) {
     const photo = await this.vehiclePhotosService.findOne(id);
 
+    response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+
     if (this.vehiclePhotosService.isCloudinaryPhoto(photo)) {
       return response.redirect(
         302,
@@ -55,8 +57,6 @@ export class VehiclePhotosController {
 
     response.type(photo.mimeType);
 
-    response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-
     return response.sendFile(
       this.vehiclePhotosService.getFilePath(photo.storedName),
     );
@@ -65,6 +65,8 @@ export class VehiclePhotosController {
   @Get(':id/download')
   async download(@Param('id') id: string, @Res() response: Response) {
     const photo = await this.vehiclePhotosService.findOne(id);
+
+    response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
     if (this.vehiclePhotosService.isCloudinaryPhoto(photo)) {
       return response.redirect(
