@@ -87,6 +87,7 @@ describe('GmailApiTransport', () => {
       status: 401,
       json: jest.fn().mockResolvedValue({
         error: 'invalid_grant',
+        error_description: 'Bad Request',
       }),
     });
 
@@ -106,7 +107,9 @@ describe('GmailApiTransport', () => {
         text: 'Tracking update',
         html: '<p>Tracking update</p>',
       }),
-    ).rejects.toThrow('Google OAuth token request failed with HTTP 401.');
+    ).rejects.toThrow(
+      'Google OAuth token request failed with HTTP 401: invalid_grant - Bad Request',
+    );
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });

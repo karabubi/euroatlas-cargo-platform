@@ -83,8 +83,25 @@ export class GmailApiTransport {
     const data: unknown = await response.json();
 
     if (!response.ok) {
+      const oauthError =
+        typeof data === 'object' &&
+        data !== null &&
+        'error' in data &&
+        typeof data.error === 'string'
+          ? data.error
+          : 'unknown_error';
+
+      const oauthDescription =
+        typeof data === 'object' &&
+        data !== null &&
+        'error_description' in data &&
+        typeof data.error_description === 'string'
+          ? data.error_description
+          : 'No error description returned';
+
       throw new Error(
-        `Google OAuth token request failed with HTTP ${response.status}.`,
+        `Google OAuth token request failed with HTTP ${response.status}: ` +
+          `${oauthError} - ${oauthDescription}`,
       );
     }
 
