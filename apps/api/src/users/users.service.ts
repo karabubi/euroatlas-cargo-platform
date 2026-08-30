@@ -53,6 +53,8 @@ export class UsersService {
         firstName: createUserDto.firstName.trim(),
         lastName: createUserDto.lastName.trim(),
         password: hashedPassword,
+        role: createUserDto.role,
+        isActive: createUserDto.isActive ?? true,
       },
       select: {
         id: true,
